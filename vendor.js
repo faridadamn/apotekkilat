@@ -26,25 +26,49 @@
   }
   function supplierName(id){ const s=DB.suppliers.find(x=>x.id===id); return s?s.name:''; }
   function activeSuppliers(){ return DB.suppliers.filter(s=>s.status==='Aktif'); }
+  function supplierProducts(id){ const name=supplierName(id); return DB.products.filter(p=>p.supplierId===id || p.supplier===name); }
+  function supplierPOs(id){ const name=supplierName(id); return [...DB.purchaseOrders].filter(p=>p.supplierId===id || p.supplier===name).sort((a,b)=>(b.date||0)-(a.date||0)); }
+  function poTone(x){ return x==='Selesai'?'ok':x==='Dalam Pengiriman'?'ok':x==='Draft'?'violet':'warn'; }
+  function poDate(d){ return d?new Date(d).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}):'-'; }
 
   const originalRender = render;
   const originalAction = action;
-  const originalOpenProductForm = openProductForm;
-  const originalOpenPOForm = openPOForm;
 
   function vendorPage(){
     const q = (S.vendorQuery||'').toLowerCase();
     const list = DB.suppliers.filter(s=>!q || (s.name+s.contact+s.phone+s.address).toLowerCase().includes(q));
-    const totalPO = (id)=>DB.purchaseOrders.filter(p=>p.supplierId===id || p.supplier===supplierName(id)).length;
-    const totalValue = (id)=>DB.purchaseOrders.filter(p=>p.supplierId===id || p.supplier===supplierName(id)).reduce((a,p)=>a+(p.value||0),0);
+    const totalPO = (id)=>supplierPOs(id).length;
+    const totalValue = (id)=>supplierPOs(id).reduce((a,p)=>a+(p.value||0),0);
     return `<section class="page active"><div class="head"><div><h2>Vendor / Supplier</h2><p>Kelola data pemasok untuk obat dan purchase order.</p></div><button class="primary" data-action="add-supplier">＋ Tambah Vendor</button></div>
       <div class="grid4"><div class="card kpi"><div class="kicon">🏢</div><div><label>Total Vendor</label><strong>${DB.suppliers.length}</strong><span class="muted">Terdaftar</span></div></div><div class="card kpi"><div class="kicon">✓</div><div><label>Vendor Aktif</label><strong>${activeSuppliers().length}</strong><span class="up">Siap digunakan</span></div></div><div class="card kpi"><div class="kicon">🛒</div><div><label>Total PO</label><strong>${DB.purchaseOrders.length}</strong><span class="muted">Semua vendor</span></div></div><div class="card kpi"><div class="kicon">◈</div><div><label>Nilai Pembelian</label><strong>${fmt(DB.purchaseOrders.reduce((a,p)=>a+(p.value||0),0))}</strong><span class="muted">Akumulasi PO</span></div></div></div>
       <div style="height:16px"></div><div class="card"><div class="tools"><input class="flex" id="supplierSearch" placeholder="Cari nama vendor, kontak, telepon, atau alamat..."/></div>
       <table><thead><tr><th>Vendor</th><th>Kontak</th><th>Telepon</th><th>Termin</th><th>PO</th><th>Nilai Pembelian</th><th>Status</th><th></th></tr></thead><tbody id="supplierBody">${supplierRows(list,totalPO,totalValue)}</tbody></table></div></section>`;
   }
+
   function supplierRows(list,totalPO,totalValue){
     if(!list.length) return '<tr><td colspan="8" class="empty">Vendor tidak ditemukan.</td></tr>';
-    return list.map(s=>`<tr><td><b>${esc(s.name)}</b><br><small class="muted">${esc(s.address||'-')}</small></td><td>${esc(s.contact||'-')}</td><td>${esc(s.phone||'-')}</td><td>${esc(s.paymentTerm||'-')}</td><td>${totalPO(s.id)}</td><td>${fmt(totalValue(s.id))}</td><td>${status(s.status,s.status==='Aktif'?'ok':'warn')}</td><td><button class="outline" data-edit-supplier="${s.id}">Edit</button> <button class="danger-btn" data-delete-supplier="${s.id}">Hapus</button></td></tr>`).join('');
+    return list.map(s=>`<tr class="clickable" data-open-supplier="${s.id}"><td><b>${esc(s.name)}</b><br><small class="muted">${esc(s.address||'-')}</small></td><td>${esc(s.contact||'-')}</td><td>${esc(s.phone||'-')}</td><td>${esc(s.paymentTerm||'-')}</td><td>${totalPO(s.id)}</td><td>${fmt(totalValue(s.id))}</td><td>${status(s.status,s.status==='Aktif'?'ok':'warn')}</td><td><button class="outline" data-edit-supplier="${s.id}">Edit</button> <button class="danger-btn" data-delete-supplier="${s.id}">Hapus</button></td></tr>`).join('');
+  }
+
+  function vendorDetailPage(){
+    const s = DB.suppliers.find(x=>x.id===S.selectedSupplierId);
+    if(!s){ S.selectedSupplierId=null; return vendorPage(); }
+    const products = supplierProducts(s.id);
+    const pos = supplierPOs(s.id);
+    const purchaseValue=pos.reduce((a,p)=>a+(p.value||0),0);
+    const latestPO=pos[0];
+    return `<section class="page active">
+      <div class="head"><div><button class="outline" data-vendor-back>← Kembali ke Vendor</button><h2 style="margin-top:14px">Detail Vendor</h2><p>Produk yang dijual dan riwayat transaksi pembelian.</p></div><div><button class="outline" data-edit-supplier="${s.id}">Edit Vendor</button></div></div>
+      <div class="card" style="padding:23px"><div style="display:flex;justify-content:space-between;gap:20px;align-items:flex-start;flex-wrap:wrap"><div style="display:flex;gap:15px;align-items:center"><div style="width:58px;height:58px;border-radius:16px;background:#e5f8ee;color:#078651;display:grid;place-items:center;font-size:27px">🏢</div><div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><h2 style="margin:0">${esc(s.name)}</h2>${status(s.status,s.status==='Aktif'?'ok':'warn')}</div><p class="muted" style="margin:7px 0 0">${esc(s.address||'Alamat belum diisi')}</p></div></div><div class="tabs"><button class="outline" data-vendor-po="${s.id}">＋ Buat PO</button></div></div>
+      <div style="height:18px"></div><div class="grid4"><div><label class="muted">PIC / Kontak</label><b style="display:block;margin-top:4px">${esc(s.contact||'-')}</b></div><div><label class="muted">Telepon</label><b style="display:block;margin-top:4px">${esc(s.phone||'-')}</b></div><div><label class="muted">Email</label><b style="display:block;margin-top:4px">${esc(s.email||'-')}</b></div><div><label class="muted">Termin Pembayaran</label><b style="display:block;margin-top:4px">${esc(s.paymentTerm||'-')}</b></div></div></div>
+      <div style="height:16px"></div>
+      <div class="grid4"><div class="card kpi"><div class="kicon">💊</div><div><label>Produk Dijual</label><strong>${products.length}</strong><span class="muted">Produk terdaftar</span></div></div><div class="card kpi"><div class="kicon">🛒</div><div><label>Total PO</label><strong>${pos.length}</strong><span class="muted">Riwayat pembelian</span></div></div><div class="card kpi"><div class="kicon">◈</div><div><label>Nilai Pembelian</label><strong>${fmt(purchaseValue)}</strong><span class="muted">Akumulasi PO</span></div></div><div class="card kpi"><div class="kicon">◴</div><div><label>PO Terakhir</label><strong>${latestPO?poDate(latestPO.date):'-'}</strong><span class="muted">${latestPO?esc(latestPO.code):'Belum ada PO'}</span></div></div></div>
+      <div style="height:16px"></div>
+      <div class="two"><div class="card"><div class="title"><span>Produk yang Dijual</span><span class="muted">${products.length} produk</span></div><table><thead><tr><th>Produk</th><th>Kategori</th><th>Harga Modal</th><th>Harga Jual</th><th>Stok</th><th>Status</th></tr></thead><tbody>${products.length?products.map(p=>{const st=computeStatus(p);return `<tr class="clickable" data-product="${p.id}"><td><b>${esc(p.name)}</b><br><small class="muted">${esc(p.type)}</small></td><td>${esc(p.cat)}</td><td>${fmt(p.cost||0)}</td><td>${fmt(p.price||0)}</td><td>${p.stock}</td><td>${status(st.status,st.tone)}</td></tr>`;}).join(''):'<tr><td colspan="6" class="empty">Belum ada produk yang dihubungkan ke vendor ini.</td></tr>'}</tbody></table></div>
+      <div class="card"><div class="title"><span>Catatan Vendor</span></div><p class="muted">Vendor ini dapat dipilih saat menambah obat maupun membuat purchase order.</p><hr style="border:0;border-top:1px solid var(--line);margin:16px 0"><p><b>Alamat</b><br><span class="muted">${esc(s.address||'-')}</span></p><p><b>Termin</b><br><span class="muted">${esc(s.paymentTerm||'-')}</span></p></div></div>
+      <div style="height:16px"></div>
+      <div class="card"><div class="title"><span>Detail Transaksi / Purchase Order</span><span class="muted">${pos.length} transaksi</span></div><table><thead><tr><th>No. PO</th><th>Tanggal</th><th>Produk</th><th>Jumlah</th><th>Nilai</th><th>Status</th><th>Catatan</th></tr></thead><tbody>${pos.length?pos.map(po=>{const items=(po.items||[]).map(it=>{const p=DB.products.find(x=>x.id===it.productId);return `${p?esc(p.name):'Produk'} × ${it.qty}`;}).join('<br>');const qty=(po.items||[]).reduce((a,it)=>a+(it.qty||0),0);return `<tr><td><b>${esc(po.code)}</b></td><td>${poDate(po.date)}</td><td>${items||'-'}</td><td>${qty}</td><td>${fmt(po.value||0)}</td><td>${status(po.status,poTone(po.status))}</td><td>${esc(po.note||'-')}</td></tr>`;}).join(''):'<tr><td colspan="7" class="empty">Belum ada transaksi purchase order untuk vendor ini.</td></tr>'}</tbody></table></div>
+    </section>`;
   }
 
   function openSupplierForm(existing){
@@ -61,6 +85,7 @@
       saveDB(); render(); toast(existing?'Vendor diperbarui':'Vendor berhasil ditambahkan');
     });
   }
+
   function removeSupplier(id){
     const s=DB.suppliers.find(x=>x.id===id); if(!s) return;
     const linked=DB.products.filter(p=>p.supplierId===id).length + DB.purchaseOrders.filter(p=>p.supplierId===id).length;
@@ -71,7 +96,7 @@
   render = function(){
     if(S.page==='vendor'){
       nav();
-      document.querySelector('#pages').innerHTML=vendorPage();
+      document.querySelector('#pages').innerHTML = S.selectedSupplierId ? vendorDetailPage() : vendorPage();
       bindVendor();
       return;
     }
@@ -98,8 +123,8 @@
     });
   };
 
-  openPOForm = function(){
-    modal('Buat Purchase Order', `<div class="form"><label>Vendor / Supplier<select id="poSupplierId"><option value="">Pilih vendor</option>${activeSuppliers().map(s=>`<option value="${s.id}">${esc(s.name)} — ${esc(s.paymentTerm||'')}</option>`).join('')}</select></label><label>Obat<select id="poProduct">${DB.products.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></label><label>Jumlah<input id="poQty" type="number" placeholder="100"/></label><label>Harga Modal per Unit<input id="poCost" type="number" placeholder="3000"/></label><label>Catatan<input id="poNote" placeholder="Kebutuhan restock minggu ini"/></label></div>`, ()=>{
+  openPOForm = function(preselectedSupplierId){
+    modal('Buat Purchase Order', `<div class="form"><label>Vendor / Supplier<select id="poSupplierId"><option value="">Pilih vendor</option>${activeSuppliers().map(s=>`<option value="${s.id}" ${s.id===preselectedSupplierId?'selected':''}>${esc(s.name)} — ${esc(s.paymentTerm||'')}</option>`).join('')}</select></label><label>Obat<select id="poProduct">${DB.products.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></label><label>Jumlah<input id="poQty" type="number" placeholder="100"/></label><label>Harga Modal per Unit<input id="poCost" type="number" placeholder="3000"/></label><label>Catatan<input id="poNote" placeholder="Kebutuhan restock minggu ini"/></label></div>`, ()=>{
       const supplierId=document.querySelector('#poSupplierId').value; const supplier=DB.suppliers.find(s=>s.id===supplierId); const qty=Number(document.querySelector('#poQty').value); const cost=Number(document.querySelector('#poCost').value)||0;
       if(!supplier) return toast('Pilih vendor terlebih dahulu','err'),false;
       if(!qty||qty<=0) return toast('Jumlah harus lebih dari 0','err'),false;
@@ -110,10 +135,14 @@
   };
 
   function bindVendor(){
-    document.querySelectorAll('[data-page]').forEach(x=>x.onclick=()=>{S.page=x.dataset.page;render();});
+    document.querySelectorAll('[data-page]').forEach(x=>x.onclick=()=>{S.page=x.dataset.page;S.selectedSupplierId=null;render();});
     document.querySelectorAll('[data-action]').forEach(x=>x.onclick=()=>action(x.dataset.action,x));
-    document.querySelectorAll('[data-edit-supplier]').forEach(x=>x.onclick=()=>openSupplierForm(DB.suppliers.find(s=>s.id===x.dataset.editSupplier)));
-    document.querySelectorAll('[data-delete-supplier]').forEach(x=>x.onclick=()=>removeSupplier(x.dataset.deleteSupplier));
+    document.querySelectorAll('[data-open-supplier]').forEach(x=>x.onclick=e=>{if(e.target.closest('button')) return;S.selectedSupplierId=x.dataset.openSupplier;render();});
+    document.querySelectorAll('[data-edit-supplier]').forEach(x=>x.onclick=e=>{e.stopPropagation();openSupplierForm(DB.suppliers.find(s=>s.id===x.dataset.editSupplier));});
+    document.querySelectorAll('[data-delete-supplier]').forEach(x=>x.onclick=e=>{e.stopPropagation();removeSupplier(x.dataset.deleteSupplier);});
+    document.querySelectorAll('[data-vendor-back]').forEach(x=>x.onclick=()=>{S.selectedSupplierId=null;render();});
+    document.querySelectorAll('[data-vendor-po]').forEach(x=>x.onclick=()=>openPOForm(x.dataset.vendorPo));
+    document.querySelectorAll('[data-product]').forEach(x=>x.onclick=()=>{S.selectedProductId=x.dataset.product;S.selectedSupplierId=null;S.page='obat';render();});
     const search=document.querySelector('#supplierSearch');
     if(search) search.oninput=()=>{S.vendorQuery=search.value;render();setTimeout(()=>{const next=document.querySelector('#supplierSearch');if(next){next.focus();next.value=S.vendorQuery;}},0);};
   }
