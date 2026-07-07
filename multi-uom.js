@@ -36,7 +36,8 @@
     });
     const add=document.querySelector('#uomAdd');if(add)add.onclick=()=>{units=readUoms();units.push({code:'',label:'',factorToBase:1,price:0,cost:0});draw();};
     document.querySelectorAll('[data-uom-remove]').forEach(b=>b.onclick=()=>{units=readUoms();units.splice(Number(b.dataset.uomRemove),1);draw();});
-  }
+  draw();
+}
 
   /* Kasir multi UOM */
   function uProducts(list){return list.map(p=>{U.ensure(p);const unit=U.unit(p,p.saleUnit);return `<div class="product"><div style="font-size:28px">💊</div><h4>${esc(p.name)}</h4><p>Stok: ${U.stock(p,unit.code)} ${esc(unit.label)} <small>(${p.stock} ${esc(U.label(p,p.baseUnit))})</small></p><select data-uom-sale-unit="${p.id}">${U.opts(p,unit.code)}</select><strong>${fmt(U.price(p,unit.code))}</strong><button class="outline" style="margin-top:12px;width:100%" data-uom-add="${p.id}">＋ Tambah</button></div>`;}).join('')||'<div class="empty">Tidak ada produk ditemukan.</div>';}
