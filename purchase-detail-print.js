@@ -1,0 +1,12 @@
+/* Cetak langsung dari halaman Detail PO */
+(function(){
+  function printDetail(id){
+    const po=DB.purchaseOrders.find(x=>x.id===id);if(!po)return;
+    const vendor=(DB.suppliers||[]).find(s=>s.id===po.supplierId||s.name===po.supplier);
+    const items=(po.items||[]).map(it=>{const p=DB.products.find(x=>x.id===it.productId);return {name:p?p.name:'Produk',qty:it.qty||0,cost:it.cost||0,total:(Number(it.qty)||0)*(Number(it.cost)||0)};});
+    const escPrint=x=>String(x==null?'':x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const w=window.open('','_blank','width=900,height=700');if(!w)return toast('Izinkan pop-up browser untuk mencetak PO','err');
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escPrint(po.code)}</title><style>body{font-family:Arial,sans-serif;padding:34px;color:#18231f}h1{margin:0;color:#078651}table{border-collapse:collapse;width:100%;margin-top:24px}th,td{border:1px solid #ccd8d2;padding:10px;text-align:left}th{background:#effaf4}.muted{color:#64748b}.box{display:flex;justify-content:space-between;gap:18px;border-bottom:2px solid #078651;padding-bottom:18px}.total{margin-top:18px;width:320px;margin-left:auto}.total p{display:flex;justify-content:space-between}</style></head><body><div class="box"><div><h1>ApotekKilat</h1><p class="muted">Dokumen Purchase Order</p></div><div><b>${escPrint(po.code)}</b><br><span class="muted">${new Date(po.date).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'})}</span></div></div><h3>Vendor / Supplier</h3><p><b>${escPrint(po.supplier||'-')}</b><br>${escPrint(vendor?.address||'')}</p><p>Status: ${escPrint(po.status)}</p><table><thead><tr><th>Produk</th><th>Jumlah</th><th>Harga Modal</th><th>Subtotal</th></tr></thead><tbody>${items.map(x=>`<tr><td>${escPrint(x.name)}</td><td>${x.qty}</td><td>${fmt(x.cost)}</td><td>${fmt(x.total)}</td></tr>`).join('')}</tbody></table><div class="total"><p><b>Total PO</b><b>${fmt(po.value||0)}</b></p></div><p><b>Catatan:</b> ${escPrint(po.note||'-')}</p>${po.rejectionReason?`<p><b>Alasan reject:</b> ${escPrint(po.rejectionReason)}</p>`:''}<br><br><p>Disiapkan oleh: ____________________</p><p>Disetujui oleh: ____________________</p><script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();
+  }
+  document.addEventListener('click',e=>{const b=e.target.closest('[data-detail-print]');if(!b)return;e.preventDefault();e.stopImmediatePropagation();printDetail(b.dataset.detailPrint);},true);
+})();
