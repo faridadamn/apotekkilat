@@ -22,9 +22,9 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .auth-alert{display:none;border:1px solid #f2d39a;background:#fff8e8;color:#8a5a00;border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.45}
 .auth-alert.show{display:block}
 .link-btn{background:transparent;color:#078651;font-weight:800;padding:8px}
-.app{max-width:1540px;min-height:940px;margin:22px auto;display:grid;grid-template-columns:238px 1fr;background:#fff;border:1px solid #e8eeee;border-radius:28px;box-shadow:0 24px 70px rgba(22,67,53,.12);overflow:hidden}
+.app{max-width:1540px;min-height:940px;margin:22px auto;display:grid;grid-template-columns:238px 1fr;background:#fff;border:1px solid #e8eeee;border-radius:28px;box-shadow:0 24px 70px rgba(22,67,53,.12);overflow:hidden;transition:grid-template-columns .2s}
 .app.locked{display:none}
-.sidebar{padding:22px 15px;border-right:1px solid var(--line);display:flex;flex-direction:column}
+.sidebar{padding:22px 15px;border-right:1px solid var(--line);display:flex;flex-direction:column;transition:width .2s,grid-template-columns .2s;overflow:hidden}
 .brand{display:flex;align-items:center;gap:10px;padding:0 10px 25px}
 .logo{width:37px;height:37px;border-radius:12px;background:#e5f8ee;color:var(--g);font-size:25px;font-weight:900;display:grid;place-items:center}
 .brand h1{font-size:19px;letter-spacing:-.6px;color:#087b51;margin:0}
@@ -144,6 +144,14 @@ tr.clickable:hover{background:#f8fffb}
 .center{text-align:center}
 .empty{text-align:center;padding:38px;color:var(--m)}
 .receipt{font-family:'Courier New',monospace;font-size:12px;white-space:pre;background:#fbfffc;border:1px dashed var(--line);border-radius:10px;padding:14px}
+/* Sidebar collapse toggle */
+.app.sidebar-collapsed{grid-template-columns:70px 1fr!important}
+.app.sidebar-collapsed .sidebar{width:70px!important;padding:22px 10px!important}
+.app.sidebar-collapsed .brand{justify-content:center;padding:0 0 25px!important}
+.app.sidebar-collapsed .brand h1,.app.sidebar-collapsed .brand p{display:none!important}
+.app.sidebar-collapsed .nav span:not(.ico):not(.pill),.app.sidebar-collapsed .tip{display:none!important}
+.app.sidebar-collapsed .nav button{justify-content:center;padding:11px 8px!important}
+
 @media(max-width:1100px){
   .app{margin:0;border-radius:0;grid-template-columns:80px 1fr}
   .brand h1,.brand p,.nav span:not(.ico):not(.pill),.tip{display:none}
