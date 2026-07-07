@@ -1,25 +1,182 @@
-const KEY='apotekkilat_db_v1';
-const seed=()=>({products:[{id:'p1',name:'Paracetamol 500mg',type:'Tablet',cat:'Analgesik',price:2000,cost:1200,stock:120,reorder:30,expired:'2027-03-01'},{id:'p2',name:'Amoxicillin 500mg',type:'Kapsul',cat:'Antibiotik',price:4500,cost:2800,stock:85,reorder:30,expired:'2027-04-01'},{id:'p3',name:'CTM 4mg',type:'Tablet',cat:'Antihistamin',price:1500,cost:800,stock:10,reorder:20,expired:'2026-06-01'},{id:'p4',name:'Loratadine 10mg',type:'Tablet',cat:'Antihistamin',price:5000,cost:3000,stock:45,reorder:20,expired:'2026-07-20'}],customers:[{id:'c1',name:'Siti Nur Aisyah',phone:'0812 3456 7890',points:1250},{id:'c2',name:'Budi Santoso',phone:'0813 2468 1357',points:980}],transactions:[],prescriptions:[{id:'rx1',patient:'Rina Sari',doctor:'dr. Budi Santoso',status:'Menunggu Verifikasi',items:'Amoxicillin 500mg x10; Paracetamol 500mg x10'}],conversations:[{id:'k1',name:'Rina Kartika',phone:'+62 812-3456-7890',messages:[{from:'in',text:'Halo, pesanan obat saya kapan dikirim?'},{from:'out',text:'Selamat pagi, mohon nomor pesanan agar kami cek.'}]}],settings:{pharmacyName:'Apotek Sehat',address:'Jakarta Selatan',whatsapp:'0812-3456-7890'}});
-let DB;try{DB=JSON.parse(localStorage.getItem(KEY))||seed()}catch(e){DB=seed()}const save=()=>localStorage.setItem(KEY,JSON.stringify(DB));
-const S={page:'dashboard',cart:[],cust:null,cat:'Semua',rx:'rx1',chat:'k1'};
-const fmt=n=>'Rp '+Math.round(n||0).toLocaleString('id-ID');
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const status=(t,c='ok')=>`<span class="status ${c}">${esc(t)}</span>`;
-const toast=(t,e=false)=>{const x=document.querySelector('#toast');x.textContent=t;x.className='toast show';if(e)x.style.background='#5a1a1e';setTimeout(()=>{x.className='toast';x.style.background=''},2200)};
-const navs=[['dashboard','⌂','Dashboard'],['inventori','▦','Inventori'],['kasir','▣','Kasir'],['resep','▤','Resep'],['pelanggan','♙','Pelanggan'],['laporan','▥','Laporan'],['chat','◌','Chat'],['pengaturan','⚙','Pengaturan']];
-function nav(){document.querySelector('#nav').innerHTML=navs.map(x=>`<button class="${S.page===x[0]?'active':''}" data-page="${x[0]}"><span class="ico">${x[1]}</span><span>${x[2]}</span></button>`).join('')}
-function kpis(){const today=new Date().toDateString();const tx=DB.transactions.filter(x=>new Date(x.time).toDateString()===today);const low=DB.products.filter(p=>p.stock<p.reorder).length;return `<div class="grid4"><div class="card kpi"><div class="kicon">▣</div><div><label>Penjualan Hari Ini</label><strong>${fmt(tx.reduce((a,x)=>a+x.total,0))}</strong></div></div><div class="card kpi"><div class="kicon">🛒</div><div><label>Transaksi</label><strong>${tx.length}</strong></div></div><div class="card kpi"><div class="kicon">◈</div><div><label>Stok Menipis</label><strong>${low}</strong></div></div><div class="card kpi"><div class="kicon">▤</div><div><label>Resep Masuk</label><strong>${DB.prescriptions.filter(x=>x.status!=='Selesai').length}</strong></div></div></div>`}
-function dashboard(){const recent=[...DB.transactions].slice(-5).reverse();return `<section class="page"><div class="head"><div><h2>Dashboard Utama</h2><p>Pantau performa apotek secara real-time.</p></div><button class="primary" data-page="kasir">＋ Transaksi Baru</button></div>${kpis()}<div style="height:16px"></div><div class="grid3"><div class="card"><div class="title"><span>Ringkasan Operasional</span></div><p class="muted">Aplikasi berjalan lokal di browser. Data produk, transaksi, pelanggan, resep, dan chat disimpan di localStorage.</p><p><b>${DB.products.length}</b> produk aktif · <b>${DB.customers.length}</b> pelanggan · <b>${DB.conversations.length}</b> percakapan</p></div><div class="card"><div class="title"><span>Stok Menipis</span></div>${DB.products.filter(p=>p.stock<p.reorder).map(p=>`<p>${esc(p.name)} — <b>${p.stock}</b></p>`).join('')||'<p class="muted">Semua stok aman.</p>'}</div><div class="card"><div class="title"><span>Notifikasi</span></div><p class="muted">${DB.prescriptions.filter(x=>x.status==='Menunggu Verifikasi').length} resep menunggu verifikasi.</p></div></div><div style="height:16px"></div><div class="card"><div class="title"><span>Transaksi Terakhir</span></div><table><thead><tr><th>No.</th><th>Pelanggan</th><th>Total</th><th>Waktu</th></tr></thead><tbody>${recent.length?recent.map(t=>`<tr><td>${t.code}</td><td>${esc(t.customer||'Pelanggan Umum')}</td><td>${fmt(t.total)}</td><td>${new Date(t.time).toLocaleString('id-ID')}</td></tr>`).join(''):'<tr><td colspan="4" class="empty">Belum ada transaksi.</td></tr>'}</tbody></table></div></section>`}
-function inventory(){return `<section class="page"><div class="head"><div><h2>Inventori Obat</h2><p>Kelola stok dan harga obat.</p></div><button class="primary" data-action="add-product">＋ Tambah Obat</button></div><div class="card"><div class="tools"><input id="invSearch" placeholder="Cari obat atau kategori..."/></div><table><thead><tr><th>Nama Obat</th><th>Kategori</th><th>Stok</th><th>Harga Jual</th><th>Expired</th><th>Status</th></tr></thead><tbody id="invBody">${productRows(DB.products)}</tbody></table></div></section>`}
-function productRows(list){return list.length?list.map(p=>`<tr><td><b>${esc(p.name)}</b><br><small class="muted">${esc(p.type)}</small></td><td>${esc(p.cat)}</td><td>${p.stock}</td><td>${fmt(p.price)}</td><td>${esc(p.expired)}</td><td>${p.stock<p.reorder?status('Stok Menipis','warn'):status('Aman')}</td></tr>`).join(''):'<tr><td colspan="6" class="empty">Tidak ada produk.</td></tr>'}
-function cashier(){const cats=['Semua',...new Set(DB.products.map(p=>p.cat))];const list=S.cat==='Semua'?DB.products:DB.products.filter(p=>p.cat===S.cat);const cart=S.cart.map(i=>({...i,p:DB.products.find(p=>p.id===i.id)}));const sub=cart.reduce((a,x)=>a+x.p.price*x.q,0),tax=Math.round(sub*.11);return `<section class="page"><div class="head"><div><h2>Kasir / Penjualan</h2><p>Tambahkan produk ke keranjang.</p></div><button class="outline" data-action="select-customer">Pilih Pelanggan</button></div><div class="pos"><div><div class="card"><div class="tabs">${cats.map(c=>`<button class="chip ${S.cat===c?'active':''}" data-cat="${esc(c)}">${esc(c)}</button>`).join('')}</div></div><h3>Produk</h3><div class="product-grid">${list.map(p=>`<div class="product"><div>💊</div><h4>${esc(p.name)}</h4><p>${esc(p.type)} · Stok ${p.stock}</p><strong>${fmt(p.price)}</strong><button class="outline" style="width:100%" data-add="${p.id}" ${p.stock<1?'disabled':''}>＋ Tambah</button></div>`).join('')}</div></div><aside class="card"><div class="title"><span>Keranjang</span><a data-action="clear-cart">Bersihkan</a></div>${cart.length?cart.map(x=>`<div class="cartline"><div class="grow"><b>${esc(x.p.name)}</b><br><small>${fmt(x.p.price)}</small></div><div class="qty"><button data-qty="${x.p.id}|-1">−</button> ${x.q} <button data-qty="${x.p.id}|1">＋</button></div></div>`).join(''):'<div class="empty">Belum ada produk dipilih.</div>'}<div class="total"><span>Subtotal</span><b>${fmt(sub)}</b></div><div class="total"><span>PPN 11%</span><b>${fmt(tax)}</b></div><div class="total big"><span>Total</span><span>${fmt(sub+tax)}</span></div><p class="muted">${S.cust?`Pelanggan: ${esc(DB.customers.find(c=>c.id===S.cust)?.name||'')}`:'Pelanggan Umum'}</p><button class="primary" style="width:100%" data-action="checkout" ${!cart.length?'disabled':''}>Proses Transaksi</button></aside></div></section>`}
-function prescription(){const r=DB.prescriptions.find(x=>x.id===S.rx)||DB.prescriptions[0];return `<section class="page"><div class="head"><div><h2>Resep & Verifikasi</h2><p>Kelola resep masuk dan proses obat pasien.</p></div><button class="primary" data-action="add-rx">＋ Resep Baru</button></div><div class="grid3"><div class="card"><div class="title"><span>Daftar Resep</span></div>${DB.prescriptions.map(x=>`<div class="conversation ${x.id===r.id?'active':''}" data-rx="${x.id}"><b>${esc(x.patient)}</b><br><small>${esc(x.doctor)}</small><br>${status(x.status,x.status==='Menunggu Verifikasi'?'warn':'ok')}</div>`).join('')}</div><div class="card"><div class="title"><span>Detail Resep</span></div><h3>${esc(r.patient)}</h3><p class="muted">${esc(r.doctor)}</p><p>${esc(r.items)}</p></div><div class="card"><div class="title"><span>Status</span></div><p>${status(r.status,r.status==='Menunggu Verifikasi'?'warn':'ok')}</p><button class="primary" data-action="advance-rx">${r.status==='Menunggu Verifikasi'?'Verifikasi':r.status==='Diproses'?'Siapkan Obat':'Selesaikan'}</button></div></div></section>`}
-function customers(){return `<section class="page"><div class="head"><div><h2>Pelanggan</h2><p>Kelola pelanggan dan poin loyalitas.</p></div><button class="primary" data-action="add-customer">＋ Pelanggan Baru</button></div><div class="card"><table><thead><tr><th>Nama</th><th>Kontak</th><th>Poin</th></tr></thead><tbody>${DB.customers.map(c=>`<tr><td><b>${esc(c.name)}</b></td><td>${esc(c.phone)}</td><td>${c.points||0}</td></tr>`).join('')}</tbody></table></div></section>`}
-function report(){const sales=DB.transactions.reduce((a,t)=>a+t.total,0);return `<section class="page"><div class="head"><div><h2>Laporan & Analitik</h2><p>Ringkasan berdasarkan data transaksi aktual.</p></div><button class="primary" data-action="export">⇩ Export CSV</button></div><div class="grid3"><div class="card"><label>Total Penjualan</label><h2>${fmt(sales)}</h2></div><div class="card"><label>Total Transaksi</label><h2>${DB.transactions.length}</h2></div><div class="card"><label>Produk</label><h2>${DB.products.length}</h2></div></div></section>`}
-function chat(){const c=DB.conversations.find(x=>x.id===S.chat)||DB.conversations[0];return `<section class="page"><div class="head"><div><h2>Chat Order & FAQ Apotek</h2><p>Mode lokal untuk demo percakapan.</p></div>${status('● Mode Lokal')}</div><div class="grid3"><div class="card">${DB.conversations.map(x=>`<div class="conversation ${x.id===c.id?'active':''}" data-chat="${x.id}"><b>${esc(x.name)}</b><br><small>${esc(x.phone)}</small></div>`).join('')}</div><div class="card"><div class="title"><span>${esc(c.name)}</span></div>${c.messages.map(m=>`<div class="bubble ${m.from==='out'?'out':''}">${esc(m.text)}</div>`).join('')}<div class="tools"><input id="chatInput" placeholder="Tulis pesan..."/><button class="primary" data-action="send-chat">Kirim</button></div></div><div class="card"><h3>${esc(c.name)}</h3><p class="muted">${esc(c.phone)}</p><p class="muted">Riwayat chat disimpan lokal di browser.</p></div></div></section>`}
-function settings(){return `<section class="page"><div class="head"><div><h2>Pengaturan</h2><p>Konfigurasi dasar ApotekKilat.</p></div></div><div class="card"><div class="form"><label>Nama Apotek<input id="setName" value="${esc(DB.settings.pharmacyName)}"></label><label>Alamat<input id="setAddress" value="${esc(DB.settings.address)}"></label><label>No. WhatsApp<input id="setWa" value="${esc(DB.settings.whatsapp)}"></label><button class="primary" data-action="save-settings">Simpan Perubahan</button><button class="danger-btn" data-action="reset">Reset Data Contoh</button></div></div></section>`}
-function modal(title,body,saveFn){document.querySelector('#modalTitle').textContent=title;document.querySelector('#modalContent').innerHTML=body;document.querySelector('#modalWrap').classList.add('show');document.querySelector('#modalSave').onclick=()=>{if(saveFn()!==false)document.querySelector('#modalWrap').classList.remove('show')}}
-function render(){nav();const f={dashboard,inventory,kasir:cashier,resep:prescription,pelanggan:customers,laporan:report,chat,pengaturan:settings}[S.page]||dashboard;document.querySelector('#pages').innerHTML=f();bind()}
-function bind(){document.querySelectorAll('[data-page]').forEach(x=>x.onclick=()=>{S.page=x.dataset.page;render()});document.querySelectorAll('[data-cat]').forEach(x=>x.onclick=()=>{S.cat=x.dataset.cat;render()});document.querySelectorAll('[data-add]').forEach(x=>x.onclick=()=>{const id=x.dataset.add,p=DB.products.find(x=>x.id===id),i=S.cart.find(x=>x.id===id);if(i){if(i.q<p.stock)i.q++}else S.cart.push({id,q:1});render()});document.querySelectorAll('[data-qty]').forEach(x=>x.onclick=()=>{const [id,d]=x.dataset.qty.split('|'),i=S.cart.find(x=>x.id===id);i.q+=+d;if(i.q<1)S.cart=S.cart.filter(x=>x!==i);render()});document.querySelectorAll('[data-rx]').forEach(x=>x.onclick=()=>{S.rx=x.dataset.rx;render()});document.querySelectorAll('[data-chat]').forEach(x=>x.onclick=()=>{S.chat=x.dataset.chat;render()});document.querySelectorAll('[data-action]').forEach(x=>x.onclick=()=>action(x.dataset.action));const search=document.querySelector('#invSearch');if(search)search.oninput=e=>document.querySelector('#invBody').innerHTML=productRows(DB.products.filter(p=>(p.name+p.cat).toLowerCase().includes(e.target.value.toLowerCase())))}
-function action(a){if(a==='clear-cart'){S.cart=[];render()}if(a==='checkout'){const items=S.cart.map(i=>{const p=DB.products.find(p=>p.id===i.id);p.stock-=i.q;return {name:p.name,qty:i.q,price:p.price}}),sub=items.reduce((s,i)=>s+i.qty*i.price,0),cust=DB.customers.find(c=>c.id===S.cust);DB.transactions.push({code:'TRX-'+Date.now().toString().slice(-6),time:Date.now(),customer:cust?.name,total:sub+Math.round(sub*.11),items});if(cust)cust.points+=(sub/1000|0);S.cart=[];save();toast('Transaksi berhasil disimpan');render()}if(a==='select-customer')modal('Pilih Pelanggan',`<select id="custPick" style="width:100%;padding:10px">${DB.customers.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select>`,()=>{S.cust=document.querySelector('#custPick').value;render()});if(a==='add-product')modal('Tambah Obat',`<div class="form"><label>Nama<input id="pn"></label><label>Kategori<input id="pc"></label><label>Harga<input id="pp" type="number"></label><label>Stok<input id="ps" type="number"></label></div>`,()=>{const name=document.querySelector('#pn').value.trim();if(!name)return false;DB.products.push({id:'p'+Date.now(),name,type:'Tablet',cat:document.querySelector('#pc').value||'Lainnya',price:+document.querySelector('#pp').value||0,cost:0,stock:+document.querySelector('#ps').value||0,reorder:10,expired:'-'});save();render()});if(a==='add-customer')modal('Pelanggan Baru',`<div class="form"><label>Nama<input id="cn"></label><label>Telepon<input id="cp"></label></div>`,()=>{const n=document.querySelector('#cn').value.trim();if(!n)return false;DB.customers.push({id:'c'+Date.now(),name:n,phone:document.querySelector('#cp').value,points:0});save();render()});if(a==='advance-rx'){const r=DB.prescriptions.find(x=>x.id===S.rx);r.status=r.status==='Menunggu Verifikasi'?'Diproses':r.status==='Diproses'?'Siap Diambil':'Selesai';save();render()}if(a==='send-chat'){const v=document.querySelector('#chatInput').value.trim();if(!v)return;DB.conversations.find(x=>x.id===S.chat).messages.push({from:'out',text:v});save();render()}if(a==='save-settings'){DB.settings.pharmacyName=document.querySelector('#setName').value;DB.settings.address=document.querySelector('#setAddress').value;DB.settings.whatsapp=document.querySelector('#setWa').value;save();toast('Pengaturan tersimpan')}if(a==='reset'){if(confirm('Reset semua data?')){DB=seed();save();render()}}if(a==='export'){const rows=['Kode,Pelanggan,Total,Waktu',...DB.transactions.map(t=>`${t.code},${t.customer||''},${t.total},${new Date(t.time).toISOString()}`)];const u=URL.createObjectURL(new Blob([rows.join('\n')],{type:'text/csv'}));const l=document.createElement('a');l.href=u;l.download='laporan-apotekkilat.csv';l.click();URL.revokeObjectURL(u)}}
-load=()=>{document.querySelector('#pharmacyLabel').textContent=DB.settings.pharmacyName;document.querySelector('#profileBranch').textContent=DB.settings.pharmacyName;document.querySelector('#globalSearch').oninput=e=>{if(e.target.value){S.page='inventori';render();setTimeout(()=>{const q=document.querySelector('#invSearch');q.value=e.target.value;q.dispatchEvent(new Event('input'))},0)}};document.querySelector('[data-action="close-modal"]').onclick=()=>document.querySelector('#modalWrap').classList.remove('show');render()};load();
+/* ApotekKilat — logic penuh, data disimpan di localStorage browser (client-side, single user/single device).
+   Tidak ada backend/server: cocok untuk 1 apotek / 1 komputer kasir. Untuk multi-cabang & multi-user
+   real-time perlu backend+database terpisah (lihat catatan di README). */
+
+const DB_KEY = 'apotekkilat_db_v1';
+
+/* ---------------- Seed / Default Data ---------------- */
+function seedData(){
+  const today = new Date();
+  const iso = (d)=> d.toISOString().slice(0,10);
+  const addDays = (n)=> { const d=new Date(today); d.setDate(d.getDate()+n); return iso(d); };
+  return {
+    products:[
+      {id:'p1',name:'Paracetamol 500mg',type:'Tablet',cat:'Analgesik',price:2000,cost:1200,stock:120,reorder:30,batch:'BJF250501',expired:addDays(260),supplier:'Hexpharm Jaya',batches:[{batchNo:'BJF250501',received:addDays(-40),expired:addDays(260),qty:120,location:'Gudang Pusat'}]},
+      {id:'p2',name:'Amoxicillin 500mg',type:'Kapsul',cat:'Antibiotik',price:4500,cost:2800,stock:85,reorder:30,batch:'AMX250402',expired:addDays(300),supplier:'Hexpharm Jaya',batches:[{batchNo:'AMX250402',received:addDays(-30),expired:addDays(300),qty:85,location:'Gudang Pusat'}]},
+      {id:'p3',name:'CTM 4mg',type:'Tablet',cat:'Antihistamin',price:1500,cost:800,stock:10,reorder:20,batch:'CTM250315',expired:addDays(-5),supplier:'Kimia Farma Trading',batches:[{batchNo:'CTM250315',received:addDays(-90),expired:addDays(-5),qty:10,location:'Gudang Pusat'}]},
+      {id:'p4',name:'Loratadine 10mg',type:'Tablet',cat:'Antihistamin',price:5000,cost:3000,stock:45,reorder:20,batch:'LOR250323',expired:addDays(18),supplier:'Dexa Medica',batches:[{batchNo:'LOR250323',received:addDays(-60),expired:addDays(18),qty:45,location:'Gudang Pusat'}]},
+      {id:'p5',name:'Ibuprofen 400mg',type:'Tablet',cat:'Analgesik',price:3500,cost:2100,stock:70,reorder:25,batch:'IBU250331',expired:addDays(400),supplier:'Kalbe Farma',batches:[{batchNo:'IBU250331',received:addDays(-50),expired:addDays(400),qty:70,location:'Gudang Pusat'}]},
+      {id:'p6',name:'Vitamin C 500mg',type:'Tablet Hisap',cat:'Suplemen',price:2500,cost:1400,stock:90,reorder:25,batch:'VC250401',expired:addDays(25),supplier:'Kalbe Farma',batches:[{batchNo:'VC250401',received:addDays(-45),expired:addDays(25),qty:90,location:'Gudang Pusat'}]},
+      {id:'p7',name:'Bodrex Extra',type:'Tablet',cat:'Analgesik',price:6000,cost:3800,stock:30,reorder:20,batch:'BDX250310',expired:addDays(500),supplier:'Bernofarm',batches:[{batchNo:'BDX250310',received:addDays(-70),expired:addDays(500),qty:30,location:'Gudang Pusat'}]},
+      {id:'p8',name:'Tolak Angin Cair',type:'Dus @12 sachet',cat:'Herbal',price:15000,cost:9500,stock:25,reorder:15,batch:'TAC250410',expired:addDays(450),supplier:'Kimia Farma Trading',batches:[{batchNo:'TAC250410',received:addDays(-20),expired:addDays(450),qty:25,location:'Gudang Pusat'}]}
+    ],
+    customers:[
+      {id:'c1',name:'Siti Nur Aisyah',phone:'0812 3456 7890',points:1250,status:'Pelanggan Setia'},
+      {id:'c2',name:'Budi Santoso',phone:'0813 2468 1357',points:980,status:'Aktif'},
+      {id:'c3',name:'Andi Wijaya',phone:'0812 8765 4321',points:750,status:'Aktif'},
+      {id:'c4',name:'Rina Marlina',phone:'0813 1122 3344',points:620,status:'Aktif'}
+    ],
+    transactions:[],
+    prescriptions:[
+      {id:'rx1',patient:'Rina Sari',gender:'Perempuan',age:29,phone:'0812-3456-7890',doctor:'dr. Budi Santoso',time:Date.now()-12*60000,status:'Menunggu Verifikasi',items:[{name:'Amoxicillin 500mg',qty:10,sig:'S 3 dd 1 cap'},{name:'Paracetamol 500mg',qty:10,sig:'S 3 dd 1 tab bila perlu'},{name:'CTM 4mg',qty:10,sig:'S 3 dd 1 tab'}],note:''},
+      {id:'rx2',patient:'Andi Wijaya',gender:'Laki-laki',age:34,phone:'0812-8765-4321',doctor:'dr. Budi Santoso',time:Date.now()-28*60000,status:'Menunggu Verifikasi',items:[{name:'Ibuprofen 400mg',qty:10,sig:'S 2 dd 1 tab'}],note:''},
+      {id:'rx3',patient:'Siti Aisyah',gender:'Perempuan',age:32,phone:'0812-1111-2222',doctor:'dr. Dinda Lestari',time:Date.now()-45*60000,status:'Diproses',items:[{name:'Loratadine 10mg',qty:10,sig:'S 1 dd 1 tab'}],note:''}
+    ],
+    purchaseOrders:[],
+    branches:[
+      {id:'b1',name:'Apotek Sehat Pusat',address:'Jakarta Selatan',isMain:true},
+      {id:'b2',name:'Apotek Sehat Bandung',address:'Bandung, Jawa Barat',isMain:false},
+      {id:'b3',name:'Apotek Sehat Surabaya',address:'Surabaya, Jawa Timur',isMain:false}
+    ],
+    users:[
+      {id:'u1',name:'Apt. Nadia Putri',branchId:'b1',role:'Owner',status:'Aktif'},
+      {id:'u2',name:'Apt. Dinda Lestari',branchId:'b2',role:'Apoteker',status:'Aktif'},
+      {id:'u3',name:'Budi Santoso',branchId:'b3',role:'Kasir',status:'Aktif'}
+    ],
+    conversations:[
+      {id:'k1',name:'Rina Kartika',phone:'+62 812-3456-7890',status:'Aktif',tone:'ok',messages:[
+        {from:'in',text:'Halo, selamat pagi. Pesanan obat saya kapan dikirim ya?',time:Date.now()-3600000},
+        {from:'out',text:'Selamat pagi, Kak Rina. Boleh saya minta nomor pesanan atau nama penerima agar saya cek untuk Anda?',time:Date.now()-3500000},
+        {from:'in',text:'Nomor pesanan saya TRX-250526-0248 atas nama Rina Kartika.',time:Date.now()-3400000},
+        {from:'out',text:'Terima kasih, Kak. Mohon ditunggu sebentar ya, saya cek terlebih dahulu.',time:Date.now()-3300000}
+      ]},
+      {id:'k2',name:'Budi Santoso',phone:'0813 2468 1357',status:'Menunggu',tone:'warn',messages:[
+        {from:'in',text:'Apakah Amoxicillin 500mg ada?',time:Date.now()-7200000}
+      ]}
+    ],
+    settings:{pharmacyName:'Apotek Sehat',address:'Jakarta Selatan',whatsapp:'0812-3456-7890',notifLowStock:true,notifExpiry:true,notifDailySummary:false},
+    activeBranchId:'b1'
+  };
+}
+
+let DB = null;
+function loadDB(){
+  try{
+    const raw = localStorage.getItem(DB_KEY);
+    if(raw) DB = JSON.parse(raw);
+    else { DB = seedData(); saveDB(); }
+  }catch(e){ DB = seedData(); saveDB(); }
+}
+function saveDB(){
+  try{ localStorage.setItem(DB_KEY, JSON.stringify(DB)); }
+  catch(e){ toast('Gagal menyimpan data (storage penuh?)','err'); }
+}
+function resetDB(){ DB = seedData(); saveDB(); }
+
+/* ---------------- Helpers ---------------- */
+const uid = (p)=> (p?p+'-':'')+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const fmt = n => 'Rp '+Math.round(n||0).toLocaleString('id-ID');
+const dateFmt = iso => { if(!iso) return '-'; const d=new Date(iso); return d.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}); };
+const timeFmt = ts => new Date(ts).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+const daysUntil = iso => Math.ceil((new Date(iso) - new Date())/86400000);
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const status = (x,t)=>`<span class="status ${t}">${esc(x)}</span>`;
+
+function toast(t, kind){
+  const e = document.querySelector('#toast');
+  e.textContent = t;
+  e.className = 'toast show'+(kind==='err'?' err':'');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=>e.classList.remove('show'), 2800);
+}
+
+function computeStatus(p){
+  const d = daysUntil(p.expired);
+  if(d < 0) return {status:'Expired', tone:'expired'};
+  if(d <= 30) return {status:'Expired Dekat', tone:'expired'};
+  if(p.stock < (p.reorder||20)) return {status:'Stok Menipis', tone:'warn'};
+  return {status:'Aman', tone:'ok'};
+}
+
+function modal(title, contentHtml, onSave, opts){
+  opts = opts || {};
+  document.querySelector('#modalTitle').textContent = title;
+  document.querySelector('#modalContent').innerHTML = contentHtml;
+  const wrap = document.querySelector('#modalWrap');
+  wrap.classList.add('show');
+  const saveBtn = document.querySelector('#modalSave');
+  saveBtn.style.display = opts.hideSave ? 'none' : '';
+  saveBtn.textContent = opts.saveLabel || 'Simpan';
+  saveBtn.onclick = ()=>{ if(onSave){ const keep = onSave(); if(keep===false) return; } wrap.classList.remove('show'); };
+}
+function closeModal(){ document.querySelector('#modalWrap').classList.remove('show'); }
+
+function confirmAction(message, onYes){
+  modal('Konfirmasi', `<p>${esc(message)}</p>`, onYes, {saveLabel:'Ya, lanjutkan'});
+}
+
+/* ---------------- App State (UI-only, not persisted) ---------------- */
+const S = {
+  page:'dashboard',
+  cart:[],
+  cartCustomerId:null,
+  selectedProductId:null,
+  selectedPrescriptionId:null,
+  selectedPOId:null,
+  selectedCustomerId:null,
+  selectedBranchId:null,
+  activeConversationId:null,
+  inventoryFilter:'all',
+  posCategory:'Semua'
+};
+
+const NAV = [
+  ['dashboard','⌂','Dashboard'],['inventori','▦','Inventori'],['obat','✚','Detail Obat'],
+  ['kasir','▣','Kasir'],['resep','▤','Resep'],['pembelian','🛒','Pembelian'],
+  ['pelanggan','♙','Pelanggan'],['laporan','▥','Laporan'],['cabang','⌘','Cabang'],
+  ['chat','◌','Chat'],['pengaturan','⚙','Pengaturan']
+];
+
+function nav(){
+  document.querySelector('#nav').innerHTML = NAV.map(n=>{
+    const badge = n[0]==='chat' ? DB.conversations.filter(c=>c.messages.length && c.messages[c.messages.length-1].from==='in').length : 0;
+    return `<button data-page="${n[0]}" class="${S.page===n[0]?'active':''}"><span class="ico">${n[1]}</span><span>${n[2]}</span>${badge?`<span class="pill">${badge}</span>`:''}</button>`;
+  }).join('');
+}
+
+/* ---------------- KPI / Chart (computed from real transactions) ---------------- */
+function todayKey(){ return new Date().toISOString().slice(0,10); }
+function txDateKey(tx){ return new Date(tx.time).toISOString().slice(0,10); }
+
+function kpis(){
+  const tKey = todayKey();
+  const todaysTx = DB.transactions.filter(t=>txDateKey(t)===tKey);
+  const salesToday = todaysTx.reduce((a,t)=>a+t.total,0);
+  const yestKey = new Date(Date.now()-86400000).toISOString().slice(0,10);
+  const salesYesterday = DB.transactions.filter(t=>txDateKey(t)===yestKey).reduce((a,t)=>a+t.total,0);
+  const growth = salesYesterday>0 ? (((salesToday-salesYesterday)/salesYesterday)*100).toFixed(1) : (salesToday>0?'100.0':'0.0');
+  const lowStock = DB.products.filter(p=>computeStatus(p).status==='Stok Menipis').length;
+  const nearExpiry = DB.products.filter(p=>{const d=daysUntil(p.expired); return d>=0 && d<=30;}).length;
+  const pendingRx = DB.prescriptions.filter(r=>r.status==='Menunggu Verifikasi').length;
+  const cards = [
+    ['▣','Penjualan Hari Ini',fmt(salesToday), (growth>=0?'↑ ':'↓ ')+Math.abs(growth)+'% dari kemarin', true],
+    ['🛒','Transaksi',String(todaysTx.length), 'Transaksi hari ini', true],
+    ['◈','Stok Menipis',String(lowStock),'Perlu perhatian', false],
+    ['◴','Mendekati Expired',String(nearExpiry),'Dalam 30 hari', false],
+    ['▤','Resep Masuk',String(pendingRx),'Menunggu verifikasi', true]
+  ];
+  return `<div class="grid5">${cards.map(x=>`<div class="card kpi"><div class="kicon">${x[0]}</div><div><label>${esc(x[1])}</label><strong>${esc(x[2])}</strong><span class="${x[4]?'up':'muted'}">${esc(x[3])}</span></div></div>`).join('')}</div>`;
+}
+
+function chart(){
+  const days = [...Array(7)].map((_,i)=>{ const d=new Date(); d.setDate(d.getDate()-(6-i)); return d.toISOString().slice(0,10); });
+  const totals = days.map(k=>DB.transactions.filter(t=>txDateKey(t)===k).reduce((a,t)=>a+t.total,0));
+  const max = Math.max(...totals, 1);
+  const W=700,H=240,pad=20;
+  const pts = totals.map((v,i)=>{ const x=pad+i*((W-2*pad)/(days.length-1)); const y=H-30-(v/max)*(H-70); return [x,y]; });
+  const line = pts.map((p,i)=>(i===0?'M':'L')+p[0]+' '+p[1]).join(' ');
+  const area = line+` L${pts[pts.length-1][0]} ${H-20} L${pts[0][0]} ${H-20} Z`;
+  return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><defs><linearGradient id="fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#10a968" stop-opacity=".32"/><stop offset="1" stop-color="#10a968" stop-opacity=".01"/></linearGradient></defs><g stroke="#e7efeb"><line x1="0" y1="45" x2="${W}" y2="45"/><line x1="0" y1="95" x2="${W}" y2="95"/><line x1="0" y1="145" x2="${W}" y2="145"/><line x1="0" y1="195" x2="${W}" y2="195"/></g><path d="${area}" fill="url(#fill)"/><path d="${line}" fill="none" stroke="#0ca968" stroke-width="4" stroke-linecap="round"/></svg></div>`;
+}
+
+/* ---------------- Dashboard ---------------- */
