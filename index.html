@@ -7,6 +7,20 @@
 <link rel="stylesheet" href="style.css"/>
 </head>
 <body>
+<div class="auth-screen" id="authScreen">
+  <div class="auth-card">
+    <div class="auth-brand"><div class="logo">✚</div><div><h1>ApotekKilat</h1><p>Login staf apotek</p></div></div>
+    <form id="authForm" class="auth-form">
+      <h2 id="authTitle">Masuk</h2>
+      <p id="authSubtitle">Gunakan akun yang sudah dibuat di Supabase Auth.</p>
+      <div class="auth-alert" id="authConfigNotice"></div>
+      <label>Email<input id="authEmail" type="email" autocomplete="email" placeholder="nama@apotek.com" required/></label>
+      <label>Password<input id="authPassword" type="password" autocomplete="current-password" placeholder="Minimal 6 karakter" required/></label>
+      <button class="primary" id="authSubmit" type="submit">Masuk</button>
+      <button class="link-btn" id="authModeToggle" type="button">Buat akun baru</button>
+    </form>
+  </div>
+</div>
 <div class="app">
   <aside class="sidebar">
     <div class="brand"><div class="logo">✚</div><div><h1>ApotekKilat</h1><p id="pharmacyLabel">Sistem Manajemen Apotek</p></div></div>
@@ -14,12 +28,15 @@
     <div class="tip"><div style="font-size:34px">💊</div><b>Apotek lebih cepat dan terkontrol.</b><p>Data tersimpan otomatis di perangkat ini.</p></div>
   </aside>
   <main>
-    <header class="top"><button class="square" id="sidebarToggle">☰</button><input class="search" id="globalSearch" placeholder="Cari obat, transaksi, pelanggan..."/><div class="spacer"></div><div class="date" id="todayDate"></div><div class="bell">♧</div><div class="profile"><div class="avatar">NP</div><div><b>Apt. Nadia Putri</b><small id="profileBranch">Apotek Sehat</small></div></div></header>
+    <header class="top"><button class="square" id="sidebarToggle">☰</button><input class="search" id="globalSearch" placeholder="Cari obat, transaksi, pelanggan..."/><div class="spacer"></div><div class="date" id="todayDate"></div><div class="bell">♧</div><div class="profile"><div class="avatar" id="profileAvatar">NP</div><div><b id="profileName">Apt. Nadia Putri</b><small id="profileBranch">Apotek Sehat</small></div></div><button class="outline small-btn" id="logoutBtn">Keluar</button></header>
     <div id="pages"></div>
   </main>
 </div>
 <div class="modal-wrap" id="modalWrap"><div class="modal"><h3 id="modalTitle">Form</h3><div id="modalContent"></div><div class="actions"><button class="outline" data-action="close-modal">Batal</button><button class="primary" id="modalSave">Simpan</button></div></div></div>
 <div class="toast" id="toast"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script src="supabase-data.js"></script>
 <script src="app.js"></script>
 <script src="vendor.js"></script>
 <script src="vendor-po.js"></script>

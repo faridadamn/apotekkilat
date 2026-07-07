@@ -1,0 +1,4 @@
+window.APOTEKKILAT_SUPABASE_CONFIG = {
+  url: 'https://kipcvugwlghonpgvitjk.supabase.co',
+  publishableKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpcGN2dWd3bGdob25wZ3ZpdGprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwMDUzNTgsImV4cCI6MjA5MjU4MTM1OH0.orjTj18nAm0HDLffgWzJpaZM4wfW2-L_C8ukzYKX88Y'
+};

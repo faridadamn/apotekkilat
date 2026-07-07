@@ -3,6 +3,10 @@
    real-time perlu backend+database terpisah (lihat catatan di README). */
 
 const DB_KEY = 'apotekkilat_db_v1';
+const SUPABASE_CONFIG = window.APOTEKKILAT_SUPABASE_CONFIG || {};
+let supabaseClient = null;
+let authSession = null;
+let authMode = 'login';
 
 /* ---------------- Seed / Default Data ---------------- */
 function seedData(){
@@ -68,7 +72,10 @@ function loadDB(){
   }catch(e){ DB = seedData(); saveDB(); }
 }
 function saveDB(){
-  try{ localStorage.setItem(DB_KEY, JSON.stringify(DB)); }
+  try{
+    localStorage.setItem(DB_KEY, JSON.stringify(DB));
+    if(window.ApotekKilatSupabaseData) window.ApotekKilatSupabaseData.scheduleSave(DB);
+  }
   catch(e){ toast('Gagal menyimpan data (storage penuh?)','err'); }
 }
 function resetDB(){ DB = seedData(); saveDB(); }
@@ -88,6 +95,113 @@ function toast(t, kind){
   e.className = 'toast show'+(kind==='err'?' err':'');
   clearTimeout(toast._t);
   toast._t = setTimeout(()=>e.classList.remove('show'), 2800);
+}
+
+function isSupabaseConfigured(){
+  return /^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(SUPABASE_CONFIG.url || '') &&
+    SUPABASE_CONFIG.publishableKey &&
+    !SUPABASE_CONFIG.publishableKey.includes('YOUR_SUPABASE');
+}
+
+function authNotice(message){
+  const el = document.querySelector('#authConfigNotice');
+  if(!el) return;
+  el.textContent = message || '';
+  el.classList.toggle('show', Boolean(message));
+}
+
+function setAuthLoading(isLoading){
+  const btn = document.querySelector('#authSubmit');
+  if(!btn) return;
+  btn.disabled = isLoading || !isSupabaseConfigured();
+  btn.textContent = isLoading ? 'Memproses...' : (authMode === 'login' ? 'Masuk' : 'Buat Akun');
+}
+
+function setAuthMode(mode){
+  authMode = mode;
+  const isLogin = authMode === 'login';
+  document.querySelector('#authTitle').textContent = isLogin ? 'Masuk' : 'Buat Akun';
+  document.querySelector('#authSubtitle').textContent = isLogin ? 'Gunakan akun yang sudah dibuat di Supabase Auth.' : 'Akun baru akan dibuat melalui Supabase Auth.';
+  document.querySelector('#authPassword').setAttribute('autocomplete', isLogin ? 'current-password' : 'new-password');
+  document.querySelector('#authModeToggle').textContent = isLogin ? 'Buat akun baru' : 'Sudah punya akun? Masuk';
+  setAuthLoading(false);
+}
+
+function showAuthGate(message){
+  document.querySelector('.app').classList.add('locked');
+  document.querySelector('#authScreen').classList.remove('hidden');
+  if(!isSupabaseConfigured()){
+    authNotice('Isi dulu url dan publishable key Supabase di supabase-config.js.');
+  } else {
+    authNotice(message || '');
+  }
+  setAuthLoading(false);
+}
+
+async function showApp(){
+  document.querySelector('#authScreen').classList.add('hidden');
+  document.querySelector('.app').classList.remove('locked');
+  if(window.ApotekKilatSupabaseData && authSession){
+    const remoteDB = await window.ApotekKilatSupabaseData.init(supabaseClient, authSession, DB);
+    if(remoteDB){
+      DB = remoteDB;
+      localStorage.setItem(DB_KEY, JSON.stringify(DB));
+    }
+  }
+  render();
+  updateHeader();
+}
+
+async function handleAuthSubmit(e){
+  e.preventDefault();
+  if(!supabaseClient) return showAuthGate('Supabase belum siap. Periksa konfigurasi project.');
+  const email = document.querySelector('#authEmail').value.trim();
+  const password = document.querySelector('#authPassword').value;
+  if(!email || !password) return authNotice('Email dan password wajib diisi.');
+  setAuthLoading(true);
+  authNotice('');
+  const result = authMode === 'login'
+    ? await supabaseClient.auth.signInWithPassword({email, password})
+    : await supabaseClient.auth.signUp({email, password});
+  setAuthLoading(false);
+  if(result.error) return authNotice(result.error.message);
+  if(authMode === 'signup' && !result.data.session){
+    authNotice('Akun dibuat. Cek email untuk konfirmasi, lalu masuk kembali.');
+    setAuthMode('login');
+    return;
+  }
+  authSession = result.data.session;
+  showApp();
+}
+
+async function signOut(){
+  if(!supabaseClient) return;
+  await supabaseClient.auth.signOut();
+  authSession = null;
+  showAuthGate('');
+  toast('Anda sudah keluar');
+}
+
+async function initAuth(){
+  document.querySelector('#authForm').onsubmit = handleAuthSubmit;
+  document.querySelector('#authModeToggle').onclick = ()=>setAuthMode(authMode === 'login' ? 'signup' : 'login');
+  document.querySelector('#logoutBtn').onclick = signOut;
+  setAuthMode('login');
+
+  if(!isSupabaseConfigured()) return showAuthGate();
+  if(!window.supabase || !window.supabase.createClient) return showAuthGate('Supabase JS gagal dimuat. Jalankan lewat internet atau simpan library secara lokal.');
+
+  supabaseClient = window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.publishableKey);
+  const {data, error} = await supabaseClient.auth.getSession();
+  if(error) return showAuthGate(error.message);
+  authSession = data.session;
+  supabaseClient.auth.onAuthStateChange((_event, session)=>{
+    authSession = session;
+    if(session) showApp();
+    else showAuthGate('');
+  });
+  if(authSession) showApp();
+  else showAuthGate('');
 }
 
 function computeStatus(p){
@@ -833,7 +947,11 @@ function updateHeader(){
   if(b) b.textContent = DB.settings.pharmacyName;
   const br = document.querySelector('#profileBranch');
   if(br) br.textContent = DB.settings.pharmacyName;
+  const email = authSession && authSession.user ? authSession.user.email : 'Belum login';
+  const name = document.querySelector('#profileName');
+  if(name) name.textContent = email;
+  const avatar = document.querySelector('#profileAvatar');
+  if(avatar) avatar.textContent = (email || 'AK').slice(0,2).toUpperCase();
 }
 loadDB();
-render();
-updateHeader();
+initAuth();

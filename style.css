@@ -8,7 +8,22 @@ body{margin:0;background:linear-gradient(130deg,#f3fbf8,#f8fbff 60%,#f4fbf8);col
 button,input,select,textarea{font:inherit}
 button{cursor:pointer;border:0}
 button:disabled{opacity:.5;cursor:not-allowed}
+.auth-screen{min-height:100vh;display:grid;place-items:center;padding:24px;background:linear-gradient(130deg,#eef9f4,#f8fbff)}
+.auth-screen.hidden{display:none}
+.auth-card{width:min(430px,100%);background:#fff;border:1px solid var(--line);border-radius:22px;padding:28px;box-shadow:0 24px 70px rgba(22,67,53,.12)}
+.auth-brand{display:flex;align-items:center;gap:10px;margin-bottom:26px}
+.auth-brand h1{font-size:20px;margin:0;color:#087b51}
+.auth-brand p{margin:2px 0 0;color:var(--m);font-size:12px}
+.auth-form{display:grid;gap:14px}
+.auth-form h2{margin:0;font-size:24px}
+.auth-form p{margin:0;color:var(--m);line-height:1.5}
+.auth-form label{font-size:12px;font-weight:800;color:#596877}
+.auth-form input{width:100%;height:43px;border:1px solid var(--line);border-radius:10px;padding:0 12px;margin-top:6px}
+.auth-alert{display:none;border:1px solid #f2d39a;background:#fff8e8;color:#8a5a00;border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.45}
+.auth-alert.show{display:block}
+.link-btn{background:transparent;color:#078651;font-weight:800;padding:8px}
 .app{max-width:1540px;min-height:940px;margin:22px auto;display:grid;grid-template-columns:238px 1fr;background:#fff;border:1px solid #e8eeee;border-radius:28px;box-shadow:0 24px 70px rgba(22,67,53,.12);overflow:hidden}
+.app.locked{display:none}
 .sidebar{padding:22px 15px;border-right:1px solid var(--line);display:flex;flex-direction:column}
 .brand{display:flex;align-items:center;gap:10px;padding:0 10px 25px}
 .logo{width:37px;height:37px;border-radius:12px;background:#e5f8ee;color:var(--g);font-size:25px;font-weight:900;display:grid;place-items:center}
@@ -41,6 +56,7 @@ main{min-width:0}
 .head p{margin:7px 0 0;color:var(--m)}
 .primary{background:linear-gradient(135deg,#10ad6b,#078755);color:#fff;border-radius:9px;padding:11px 15px;font-weight:800;box-shadow:0 5px 14px rgba(11,169,102,.23)}
 .outline{background:#fff;color:#078651;border:1px solid #b9e8d0;border-radius:9px;padding:10px 13px;font-weight:800}
+.small-btn{padding:8px 11px}
 .danger-btn{background:#fff;color:var(--red);border:1px solid #f2b4b8;border-radius:9px;padding:10px 13px;font-weight:800}
 .grid5{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
 .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
