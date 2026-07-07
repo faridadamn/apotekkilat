@@ -286,5 +286,5 @@
     }
   }
 
-  return {init, scheduleSave, flush, getMode:()=>state.mode, getPharmacyId:()=>state.pharmacyId};
+  window.ApotekKilatSupabaseData = {init, scheduleSave, flush, getMode:()=>state.mode, getPharmacyId:()=>state.pharmacyId};
 })();
