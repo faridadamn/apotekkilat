@@ -9,5 +9,11 @@
   const blob=new Blob([parts.join('\n')],{type:'text/javascript'});
   const script=document.createElement('script');
   script.src=URL.createObjectURL(blob);
+  script.onload=()=>{
+    const date=document.querySelector('#todayDate');
+    if(date) date.textContent=new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'});
+    const toggle=document.querySelector('#sidebarToggle');
+    if(toggle) toggle.onclick=()=>document.querySelector('.app').classList.toggle('sidebar-collapsed');
+  };
   document.head.appendChild(script);
 })().catch(error=>console.error(error));
