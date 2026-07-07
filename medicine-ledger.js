@@ -5,14 +5,17 @@
   function escVal(v){return esc(String(v==null?'':v));}
   function ledgerFor(product){
     const entries=[];
-    (product.batches||[]).filter(b=>!String(b.batchNo||'').startsWith('PO-')).forEach((b,i)=>{
+    (product.batches||[]).filter(b=>!String(b.batchNo||'').startsWith('PO-')&&!String(b.batchNo||'').startsWith('SO-')).forEach((b,i)=>{
       entries.push({id:'batch-'+i+'-'+b.batchNo,date:b.received?new Date(b.received).getTime():0,type:'Saldo Awal / Batch',direction:'in',qty:Number(b.qty)||0,ref:b.batchNo||'-',note:`Batch masuk · ${b.location||'Gudang Pusat'}`,source:'batch'});
     });
     (DB.purchaseOrders||[]).filter(po=>po.status==='Selesai').forEach(po=>{
-      (po.items||[]).filter(it=>it.productId===product.id).forEach((it,i)=>entries.push({id:'po-'+po.id+'-'+i,date:po.receivedAt||po.date||0,type:'Pembelian',direction:'in',qty:Number(it.qty)||0,ref:po.code||'PO',note:`Penerimaan dari ${po.supplier||'-'}`,source:'po'}));
+      (po.items||[]).filter(it=>it.productId===product.id).forEach((it,i)=>entries.push({id:'po-'+po.id+'-'+i,date:po.receivedAt||po.date||0,type:'Pembelian',direction:'in',qty:Number(it.baseQty??it.qty)||0,ref:po.code||'PO',note:`Penerimaan dari ${po.supplier||'-'}`,source:'po'}));
     });
     (DB.transactions||[]).forEach(tx=>{
-      (tx.items||[]).filter(it=>it.productId===product.id).forEach((it,i)=>entries.push({id:'tx-'+tx.id+'-'+i,date:tx.time||0,type:'Penjualan',direction:'out',qty:Number(it.qty)||0,ref:tx.code||'TRX',note:`Penjualan${tx.payment?' · '+tx.payment:''}`,source:'sale'}));
+      (tx.items||[]).filter(it=>it.productId===product.id).forEach((it,i)=>entries.push({id:'tx-'+tx.id+'-'+i,date:tx.time||0,type:'Penjualan',direction:'out',qty:Number(it.baseQty??it.qty)||0,ref:tx.code||'TRX',note:`Penjualan${tx.payment?' · '+tx.payment:''}`,source:'sale'}));
+    });
+    (DB.stockOpnames||[]).filter(so=>so.status==='Selesai').forEach(so=>{
+      (so.items||[]).filter(it=>it.productId===product.id&&Number(it.diff)!==0).forEach((it,i)=>entries.push({id:'so-'+so.id+'-'+i,date:so.completedAt||so.date||0,type:'Stock Adjustment',direction:Number(it.diff)>0?'in':'out',qty:Math.abs(Number(it.diff)||0),ref:so.code||'SO',note:`${it.reason||'Adjustment'} · Sistem ${it.systemQty}, fisik ${it.physicalQty}`,source:'stock-opname'}));
     });
     const sorted=entries.sort((a,b)=>(a.date||0)-(b.date||0));let balance=0;
     return sorted.map(e=>{balance+=e.direction==='in'?e.qty:-e.qty;return {...e,balance};});
@@ -33,7 +36,7 @@
     const all=ledgerFor(p);const list=filtered(all);
     const rows=list.map(e=>`<tr><td>${dateText(e.date)}</td><td>${status(e.type,e.direction==='in'?'ok':'warn')}</td><td><b>${escVal(e.ref)}</b><br><small class="muted">${escVal(e.note)}</small></td><td style="color:var(--g);font-weight:800">${e.direction==='in'?'+':''}${e.direction==='in'?e.qty:0}</td><td style="color:var(--red);font-weight:800">${e.direction==='out'?'-'+e.qty:0}</td><td><b>${e.balance}</b></td></tr>`).join('');
     const el=document.querySelector('#medicineLedger');if(!el)return;
-    el.innerHTML=`<div class="card"><div class="title"><span>Ledger Entries</span><span class="muted">${list.length} dari ${all.length} mutasi</span></div><p class="muted" style="margin-top:0">Riwayat pergerakan stok obat dari batch awal, penerimaan PO, dan transaksi penjualan.</p><div class="tools"><input id="ledgerSearch" class="flex" placeholder="Cari nomor PO, transaksi, atau keterangan..." value="${escVal((S.medicineLedgerFilter||{}).search||'')}"><select id="ledgerType"><option>Semua</option>${['Saldo Awal / Batch','Pembelian','Penjualan'].map(x=>`<option ${((S.medicineLedgerFilter||{}).type||'Semua')===x?'selected':''}>${x}</option>`).join('')}</select><input id="ledgerStart" type="date" value="${escVal((S.medicineLedgerFilter||{}).start||'')}"><input id="ledgerEnd" type="date" value="${escVal((S.medicineLedgerFilter||{}).end||'')}"><button class="outline" id="ledgerReset">Reset</button></div><div style="overflow:auto"><table><thead><tr><th>Tanggal</th><th>Tipe</th><th>Referensi / Keterangan</th><th>Masuk</th><th>Keluar</th><th>Saldo Berjalan</th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="empty">Tidak ada ledger sesuai filter.</td></tr>'}</tbody></table></div></div>`;
+    el.innerHTML=`<div class="card"><div class="title"><span>Ledger Entries</span><span class="muted">${list.length} dari ${all.length} mutasi</span></div><p class="muted" style="margin-top:0">Riwayat pergerakan stok dari batch awal, PO, penjualan, dan stock adjustment.</p><div class="tools"><input id="ledgerSearch" class="flex" placeholder="Cari nomor PO, transaksi, SO, atau keterangan..." value="${escVal((S.medicineLedgerFilter||{}).search||'')}"><select id="ledgerType"><option>Semua</option>${['Saldo Awal / Batch','Pembelian','Penjualan','Stock Adjustment'].map(x=>`<option ${((S.medicineLedgerFilter||{}).type||'Semua')===x?'selected':''}>${x}</option>`).join('')}</select><input id="ledgerStart" type="date" value="${escVal((S.medicineLedgerFilter||{}).start||'')}"><input id="ledgerEnd" type="date" value="${escVal((S.medicineLedgerFilter||{}).end||'')}"><button class="outline" id="ledgerReset">Reset</button></div><div style="overflow:auto"><table><thead><tr><th>Tanggal</th><th>Tipe</th><th>Referensi / Keterangan</th><th>Masuk</th><th>Keluar</th><th>Saldo Berjalan</th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="empty">Tidak ada ledger sesuai filter.</td></tr>'}</tbody></table></div></div>`;
     bindLedger();
   }
   function bindLedger(){
