@@ -1,1 +1,1 @@
-if(typeof nav==='function') nav();
+if(typeof render==='function') render();
