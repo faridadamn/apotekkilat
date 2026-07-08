@@ -10,11 +10,11 @@ Branch:
 
 - `phase-1-5-lock-direct-mutation`
 
-## Gate 1 — Sync live SQL function bodies
+## Gate 1 — Migration placeholder replacement
 
-Some migration files are still summary/placeholder migrations and must be expanded before a clean replay from zero.
+Status: mostly completed for P2/P4/P5 files that previously contained placeholder/summary notes.
 
-Known files requiring full live function body sync:
+Updated files:
 
 - `supabase/migrations/202607080019_p2_checkout_transaction_atomic.sql`
 - `supabase/migrations/202607080020_p2_receive_purchase_order_atomic.sql`
@@ -24,23 +24,15 @@ Known files requiring full live function body sync:
 - `supabase/migrations/202607080031_p5_branch_transfer_workflow.sql`
 - `supabase/migrations/202607080033_p5_observability_integrity_alerts.sql`
 
-Recommended export command:
+Repository search result after replacement:
 
-```sql
-select n.nspname as schema,
-       p.proname as name,
-       pg_get_function_identity_arguments(p.oid) as args,
-       pg_get_functiondef(p.oid) as definition
-from pg_proc p
-join pg_namespace n on n.oid=p.pronamespace
-where n.nspname in ('public','private')
-  and p.proname in (
-    'checkout_transaction','receive_purchase_order','submit_return','approve_return','complete_return','post_stock_opname',
-    'create_branch_transfer','dispatch_branch_transfer','receive_branch_transfer',
-    'log_system_event','log_sync_failure','run_integrity_checks','raise_integrity_alert'
-  )
-order by n.nspname, p.proname;
-```
+- `placeholder`: no result.
+- `Expand before clean replay`: no result.
+
+Important caveat:
+
+- `checkout_transaction` in repo is replayable and implements the core P2/P4/P5 rules, but it is a compact replayable body rather than a byte-for-byte copy of the long live function export.
+- For final production-grade migration hygiene, run a clean database replay in a test project and compare `pg_get_functiondef` against live for critical RPCs.
 
 ## Gate 2 — `supabase-data.js` review
 
@@ -63,10 +55,10 @@ Branching is supported only on the Pro plan or above
 
 Current project branch list only shows `main`.
 
-Restore validation still needs to be executed manually using either:
+Restore validation remains intentionally held until either:
 
-- Supabase Pro branching, or
-- a separate restore/test project.
+- Supabase Pro branching is enabled, or
+- a separate restore/test project is created manually.
 
 ## Gate 4 — Integrity baseline
 
@@ -96,7 +88,7 @@ Note: no tenant rows exist yet in `public.pharmacies`, so `run_integrity_checks(
 
 Do not merge to `main` until:
 
-1. Placeholder migrations are expanded with full live SQL function bodies.
-2. `supabase-data.js` is either accepted as intentionally RPC-only or patched with P4/P5 read models.
-3. Restore validation is executed on a branch/test project.
-4. Integrity checks pass after restore.
+1. Clean replay is tested on a separate project/branch.
+2. Integrity checks pass after replay/restore.
+3. `supabase-data.js` P4/P5 read-model needs are either explicitly accepted as future work or patched.
+4. Critical RPC function definitions are compared between replay DB and live DB.
