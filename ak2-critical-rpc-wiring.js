@@ -6,6 +6,7 @@
   const n = v => Number(v) || 0;
   const isUuid = id => UUID_RE.test(String(id || ''));
   const uuid = () => crypto.randomUUID();
+  const asyncUi = () => window.ApotekKilatAsyncAction;
 
   function cloudReady(){
     return !!(window.ApotekKilatSupabaseData &&
@@ -16,6 +17,11 @@
 
   function activeBranchId(){
     return DB.activeBranchId || ((DB.branches || [])[0] && DB.branches[0].id) || null;
+  }
+
+  function activeActionButton(selector){
+    const active = document.activeElement && document.activeElement.matches && document.activeElement.matches(selector) ? document.activeElement : null;
+    return active || document.querySelector(selector);
   }
 
   function restrictedProduct(product){
@@ -125,7 +131,10 @@
   }
 
   checkout = function(){
-    if(cloudReady()) return checkoutCloud();
+    if(cloudReady()){
+      const btn = activeActionButton('[data-action="checkout"]');
+      return asyncUi() ? asyncUi().run(btn, checkoutCloud, {label:'Memproses...'}) : checkoutCloud();
+    }
     return previousCheckout ? previousCheckout() : toast('Checkout tidak tersedia', 'err');
   };
 
@@ -151,43 +160,47 @@
           <label>Lokasi<input id="ak2rpl${i}" value="Gudang Pusat" /></label>
         </div>`;
       }).join('')}
-    </div>`, async ()=>{
-      try{
-        const payloadItems = items.map((it,i)=>({
-          purchase_order_item_id: document.querySelector(`#ak2rpoi${i}`).value || null,
-          product_id: document.querySelector(`#ak2rpp${i}`).value || it.productId,
-          qty_received: n(document.querySelector(`#ak2rpq${i}`).value),
-          actual_cost: n(document.querySelector(`#ak2rpc${i}`).value),
-          batch_no: document.querySelector(`#ak2rpb${i}`).value.trim() || null,
-          expired_at: document.querySelector(`#ak2rpe${i}`).value || null,
-          location: document.querySelector(`#ak2rpl${i}`).value || 'Gudang Pusat'
-        })).filter(x=>x.qty_received > 0);
-        if(!payloadItems.length){ toast('Minimal satu item diterima', 'err'); return false; }
-        const {data, error} = await supabaseClient.rpc('receive_purchase_order', {p_payload:{
-          purchase_order_id: po.id,
-          branch_id: activeBranchId(),
-          idempotency_key: uuid(),
-          items: payloadItems
-        }});
-        if(error) throw error;
-        po.status = data && data.status ? data.status : 'Parsial';
-        po.receivedAt = Date.now();
-        (data && data.items ? data.items : payloadItems).forEach(row=>{
-          const p = DB.products.find(x=>x.id === (row.product_id || row.productId));
-          if(!p) return;
-          p.stock = n(p.stock) + n(row.qty_received);
-          p.cost = n(row.actual_cost) || p.cost;
-          p.batches = p.batches || [];
-          p.batches.push({id:row.batch_id || uuid(), batchNo:row.batch_no || row.batchNo || ('PO-'+String(Date.now()).slice(-6)), received:new Date().toISOString().slice(0,10), expired:row.expired_at || row.expiredAt || null, qty:n(row.qty_received), location:row.location||'Gudang Pusat'});
-        });
-        localStorage.setItem(DB_KEY, JSON.stringify(DB));
-        render();
-        toast('Penerimaan PO berhasil via RPC');
-      }catch(err){
-        console.error(err);
-        toast(err.message || 'Gagal menerima PO via RPC', 'err');
-        return false;
-      }
+    </div>`, ()=>{
+      const saveBtn = document.querySelector('#modalSave');
+      const task = async ()=>{
+        try{
+          const payloadItems = items.map((it,i)=>({
+            purchase_order_item_id: document.querySelector(`#ak2rpoi${i}`).value || null,
+            product_id: document.querySelector(`#ak2rpp${i}`).value || it.productId,
+            qty_received: n(document.querySelector(`#ak2rpq${i}`).value),
+            actual_cost: n(document.querySelector(`#ak2rpc${i}`).value),
+            batch_no: document.querySelector(`#ak2rpb${i}`).value.trim() || null,
+            expired_at: document.querySelector(`#ak2rpe${i}`).value || null,
+            location: document.querySelector(`#ak2rpl${i}`).value || 'Gudang Pusat'
+          })).filter(x=>x.qty_received > 0);
+          if(!payloadItems.length){ toast('Minimal satu item diterima', 'err'); return false; }
+          const {data, error} = await supabaseClient.rpc('receive_purchase_order', {p_payload:{
+            purchase_order_id: po.id,
+            branch_id: activeBranchId(),
+            idempotency_key: uuid(),
+            items: payloadItems
+          }});
+          if(error) throw error;
+          po.status = data && data.status ? data.status : 'Parsial';
+          po.receivedAt = Date.now();
+          (data && data.items ? data.items : payloadItems).forEach(row=>{
+            const p = DB.products.find(x=>x.id === (row.product_id || row.productId));
+            if(!p) return;
+            p.stock = n(p.stock) + n(row.qty_received);
+            p.cost = n(row.actual_cost) || p.cost;
+            p.batches = p.batches || [];
+            p.batches.push({id:row.batch_id || uuid(), batchNo:row.batch_no || row.batchNo || ('PO-'+String(Date.now()).slice(-6)), received:new Date().toISOString().slice(0,10), expired:row.expired_at || row.expiredAt || null, qty:n(row.qty_received), location:row.location||'Gudang Pusat'});
+          });
+          localStorage.setItem(DB_KEY, JSON.stringify(DB));
+          render();
+          toast('Penerimaan PO berhasil via RPC');
+        }catch(err){
+          console.error(err);
+          toast(err.message || 'Gagal menerima PO via RPC', 'err');
+          return false;
+        }
+      };
+      return asyncUi() ? asyncUi().run(saveBtn, task, {label:'Memproses...'}) : task();
     }, {saveLabel:'Terima Barang'});
   }
 
@@ -195,6 +208,7 @@
     if(!cloudReady()) return;
     const btn = e.target.closest('[data-po-receive],[data-detail-receive]');
     if(!btn) return;
+    if(asyncUi() && asyncUi().isBusy(btn)){ e.preventDefault(); e.stopImmediatePropagation(); return; }
     const id = btn.dataset.poReceive || btn.dataset.detailReceive;
     const po = (DB.purchaseOrders || []).find(x => x.id === id);
     if(!po || !poReceivable(po)) return;
@@ -211,23 +225,26 @@
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation();
-    const so = (DB.stockOpnames || []).find(x => x.id === btn.dataset.soFinish);
-    if(!so) return toast('Stock opname tidak ditemukan', 'err');
-    const invalid = (so.items || []).find(x => n(x.diff) !== 0 && !x.reason);
-    if(invalid) return toast('Semua produk dengan selisih wajib memiliki alasan', 'err');
-    try{
-      const {data, error} = await supabaseClient.rpc('post_stock_opname', {p_stock_opname_id: so.id});
-      if(error) throw error;
-      so.status = data && data.status ? data.status : 'Posted';
-      so.completedAt = Date.now();
-      so.postedAt = Date.now();
-      localStorage.setItem(DB_KEY, JSON.stringify(DB));
-      render();
-      toast('Stock opname diposting via RPC');
-    }catch(err){
-      console.error(err);
-      toast(err.message || 'Gagal posting stock opname via RPC', 'err');
-    }
+    const task = async ()=>{
+      const so = (DB.stockOpnames || []).find(x => x.id === btn.dataset.soFinish);
+      if(!so) return toast('Stock opname tidak ditemukan', 'err');
+      const invalid = (so.items || []).find(x => n(x.diff) !== 0 && !x.reason);
+      if(invalid) return toast('Semua produk dengan selisih wajib memiliki alasan', 'err');
+      try{
+        const {data, error} = await supabaseClient.rpc('post_stock_opname', {p_stock_opname_id: so.id});
+        if(error) throw error;
+        so.status = data && data.status ? data.status : 'Posted';
+        so.completedAt = Date.now();
+        so.postedAt = Date.now();
+        localStorage.setItem(DB_KEY, JSON.stringify(DB));
+        render();
+        toast('Stock opname diposting via RPC');
+      }catch(err){
+        console.error(err);
+        toast(err.message || 'Gagal posting stock opname via RPC', 'err');
+      }
+    };
+    return asyncUi() ? asyncUi().run(btn, task, {label:'Memproses...'}) : task();
   }, true);
 
   window.ApotekKilatCriticalRpcWiring = {checkoutCloud};
