@@ -1,5 +1,6 @@
 /* Mobile UX Phase 1 — responsive foundation only.
-   Desktop styles remain owned by style.css. This file only activates at tablet/mobile breakpoints. */
+   Desktop styles remain owned by style.css. This file only activates at tablet/mobile breakpoints.
+   Phase 2 drawer navigation is appended at the end and remains mobile-only. */
 
 @media(max-width:1100px){
   body{background:#f5faf8}
@@ -91,4 +92,59 @@
   .top{padding-inline:10px}
   .card{padding:12px}
   .auth-card{padding:20px 16px}
+}
+
+/* Mobile UX Phase 2 — drawer navigation.
+   Uses the existing #sidebarToggle behavior that toggles .sidebar-collapsed on .app. */
+@media(max-width:720px){
+  .app:before{
+    content:'';
+    position:fixed;
+    inset:0;
+    background:rgba(8,30,24,.42);
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .18s ease;
+    z-index:18;
+  }
+  .app.sidebar-collapsed:before{opacity:1;pointer-events:auto}
+
+  .app.sidebar-collapsed .sidebar,
+  .sidebar{
+    display:flex!important;
+    position:fixed;
+    top:0;
+    left:0;
+    bottom:0;
+    width:min(82vw,318px)!important;
+    max-width:318px;
+    padding:18px 14px calc(18px + env(safe-area-inset-bottom,0px))!important;
+    border-right:1px solid var(--line);
+    background:#fff;
+    box-shadow:18px 0 60px rgba(6,28,22,.22);
+    z-index:19;
+    transform:translateX(-105%);
+    transition:transform .22s ease;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  .app.sidebar-collapsed .sidebar{transform:translateX(0)}
+
+  .brand{justify-content:flex-start!important;padding:0 8px 18px!important;border-bottom:1px solid var(--line);margin-bottom:10px}
+  .brand h1,.brand p{display:block!important}
+  .brand h1{font-size:18px}
+  .brand p{font-size:10px}
+
+  .nav{gap:6px;padding-top:4px}
+  .nav button{justify-content:flex-start!important;min-height:44px;padding:12px 12px!important;border-radius:13px;font-size:13px}
+  .nav span:not(.ico):not(.pill){display:inline!important}
+  .ico{width:24px;font-size:17px;flex:0 0 24px}
+  .pill{display:inline-flex!important;align-items:center;margin-left:auto}
+  .tip{display:block!important;margin-top:14px;padding:14px 12px;border-radius:14px}
+  .tip div{font-size:26px!important}
+  .tip b{font-size:12px}
+  .tip p{font-size:11px;margin:6px 0 0}
+
+  .app.sidebar-collapsed .square{background:#e5f8ee;color:#078651;border-color:#bdebd3;font-size:0}
+  .app.sidebar-collapsed .square:before{content:'×';font-size:22px;font-weight:800;line-height:1}
 }
