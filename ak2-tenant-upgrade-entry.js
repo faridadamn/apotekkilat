@@ -1,9 +1,16 @@
 /* Iterasi 2 Phase B — visible tenant onboarding entry point. */
 (function(){
+  function isLocalFreeSession(){
+    return !!(authSession && authSession.user && authSession.user.id === 'local-owner');
+  }
   function canUpgrade(){
-    return !!(window.ApotekKilatTenantOnboarding && window.ApotekKilatTenantOnboarding.canUpgradeToCloud && window.ApotekKilatTenantOnboarding.canUpgradeToCloud());
+    return !isLocalFreeSession() && !!(window.ApotekKilatTenantOnboarding && window.ApotekKilatTenantOnboarding.canUpgradeToCloud && window.ApotekKilatTenantOnboarding.canUpgradeToCloud());
   }
   function openUpgrade(){
+    if(isLocalFreeSession()){
+      toast('Masuk dengan akun Supabase dulu untuk aktivasi Cloud.', 'err');
+      return;
+    }
     if(window.ApotekKilatTenantOnboarding) window.ApotekKilatTenantOnboarding.openTenantUpgrade();
   }
   function injectHeaderButton(){
