@@ -34,7 +34,13 @@
     };
   }
   document.addEventListener('click', function(e){
-    if(e.target.closest('#sidebarToggle')){ e.preventDefault(); toggleDrawer(); return; }
+    if(e.target.closest('#sidebarToggle')){
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      toggleDrawer();
+      return;
+    }
     if(e.target.closest('#nav [data-page]')) closeDrawer();
   }, true);
   document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeDrawer(); });
