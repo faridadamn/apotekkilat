@@ -94,8 +94,8 @@
   const originalShowAuthGate = typeof showAuthGate === 'function' ? showAuthGate : null;
   if(originalShowAuthGate){
     showAuthGate = function(message){
-      if(isLocalSession() && !isCloudMode()){
-        hideAuthForLocal();
+      if(!isCloudMode()){
+        startLocalFreeTier();
         return;
       }
       return originalShowAuthGate(message);
@@ -104,7 +104,7 @@
 
   window.ApotekKilatFreeTier = {startLocalFreeTier, normalizeFreeTierData};
 
-  // Give async Supabase session detection a short window; if no cloud tenant is active, keep free tier unlocked.
+  // Explicit auth fallback: every first-run/local/no-session path ends in productive Owner mode.
   setTimeout(startLocalFreeTier, 0);
   setTimeout(startLocalFreeTier, 600);
   setTimeout(startLocalFreeTier, 1800);
