@@ -4,9 +4,8 @@
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i;
   const uuid = () => crypto.randomUUID();
   const isUuid = id => UUID_RE.test(String(id || ''));
-  const clone = v => JSON.parse(JSON.stringify(v || null));
   const n = v => Number(v) || 0;
-  const cloudReady = () => !!(window.ApotekKilatSupabaseData && window.ApotekKilatSupabaseData.getMode && window.ApotekKilatSupabaseData.getMode() === 'cloud' && window.supabaseClient);
+  const cloudReady = () => !!(window.ApotekKilatSupabaseData && window.ApotekKilatSupabaseData.getMode && window.ApotekKilatSupabaseData.getMode() === 'cloud' && typeof supabaseClient !== 'undefined' && supabaseClient);
   const setSyncStatus = status => window.dispatchEvent(new CustomEvent('apotekkilat:sync-status', {detail:{status}}));
 
   const seenProducts = new Map();
@@ -125,8 +124,8 @@
     return changes;
   }
 
-  const oldSaveDB = window.saveDB || saveDB;
-  if(typeof oldSaveDB === 'function'){
+  const oldSaveDB = typeof saveDB === 'function' ? saveDB : null;
+  if(oldSaveDB){
     window.saveDB = saveDB = function(){
       const changes = detectProductAndPOChanges();
       const result = oldSaveDB.apply(this, arguments);
@@ -136,13 +135,22 @@
   }
 
   const multi = window.ApotekKilatMultiUomBridge || {};
-  const oldAction = window.action || action;
+  const oldAction = typeof action === 'function' ? action : null;
   window.action = action = function(a, el){
     if(a === 'add-product' && typeof multi.openProductForm === 'function') return multi.openProductForm();
     if(a === 'edit-medicine' && typeof multi.openProductForm === 'function') return multi.openProductForm(DB.products.find(p=>p.id===S.selectedProductId));
     if(a === 'new-po' && typeof multi.openPOForm === 'function') return multi.openPOForm();
     return oldAction ? oldAction(a, el) : undefined;
   };
+
+  if(typeof showApp === 'function'){
+    const oldShowApp = showApp;
+    window.showApp = showApp = async function(){
+      const out = await oldShowApp.apply(this, arguments);
+      refreshBaseline();
+      return out;
+    };
+  }
 
   refreshBaseline();
   window.ApotekKilatP6B1CloudSyncFix = {refreshBaseline, detectProductAndPOChanges};
