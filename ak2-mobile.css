@@ -1,0 +1,33 @@
+/* Iterasi 2 — Mobile release readiness layer. Does not modify desktop style.css. */
+@media(max-width:720px){
+  body{overflow-x:hidden;}
+  .app{width:100%;min-height:100vh;}
+  .app main{width:100%;min-width:0;}
+  .top{position:sticky;top:0;z-index:40;gap:8px;padding:10px;background:var(--card,#fff);}
+  .top .search{min-width:0;flex:1;}
+  .top .profile{display:none;}
+  .sidebar{display:block;position:fixed;top:0;bottom:0;left:0;width:min(86vw,320px);z-index:80;transform:translateX(-105%);transition:transform .2s ease;background:var(--card,#fff);box-shadow:0 24px 60px rgba(15,23,42,.22);overflow:auto;}
+  .app.mobile-drawer-open .sidebar{transform:translateX(0);}
+  .mobile-drawer-overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:70;display:none;}
+  .app.mobile-drawer-open + .mobile-drawer-overlay{display:block;}
+  .app.sidebar-collapsed .nav span:not(.ico):not(.pill){display:inline!important;}
+  .nav button{min-height:44px;}
+  .grid5,.grid4,.grid3,.two,.split{grid-template-columns:1fr!important;}
+  .head{gap:12px;align-items:flex-start;}
+  .head .primary,.head .outline{width:100%;}
+  .tools{flex-direction:column;align-items:stretch;}
+  .tools input,.tools select,.tools button{width:100%;}
+  .product-grid{grid-template-columns:1fr!important;}
+  .modal-wrap.show{align-items:flex-end;padding:0;}
+  .modal{width:100%;max-width:none;max-height:88vh;border-radius:18px 18px 0 0;overflow:auto;}
+  .modal:before{content:'';display:block;width:44px;height:4px;border-radius:99px;background:#ccd6d0;margin:0 auto 12px;}
+  .modal h3{position:sticky;top:0;background:inherit;z-index:1;padding-top:6px;}
+  .modal .actions{position:sticky;bottom:0;background:inherit;padding-top:10px;}
+  input,select,textarea,button{font-size:16px;}
+  .form input,.form select,.form textarea{min-height:44px;}
+  table.mobile-card-table, table.mobile-card-table thead, table.mobile-card-table tbody, table.mobile-card-table tr, table.mobile-card-table th, table.mobile-card-table td{display:block;width:100%;}
+  table.mobile-card-table thead{display:none;}
+  table.mobile-card-table tr{border:1px solid var(--line,#e5e7eb);border-radius:14px;margin:10px 0;padding:10px;background:var(--card,#fff);}
+  table.mobile-card-table td{border:0!important;padding:7px 4px!important;display:flex;justify-content:space-between;gap:12px;align-items:flex-start;}
+  table.mobile-card-table td:before{content:attr(data-label);font-weight:700;color:var(--muted,#64748b);min-width:110px;}
+}
