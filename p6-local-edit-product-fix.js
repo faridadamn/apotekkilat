@@ -1,6 +1,11 @@
 /* P6 local edit product fix — ensure Edit Obat form persists name/UOM/golongan locally.
    UI-form persistence guard only. Does not change checkout, sync, RPC, or stock movement logic. */
 (function(){
+  function isProductModal(){
+    const title = document.querySelector('#modalTitle')?.textContent || '';
+    return /(Tambah Obat|Edit Obat)/i.test(title) && !!document.querySelector('#uName');
+  }
+
   function isEditProductModal(){
     const title = document.querySelector('#modalTitle')?.textContent || '';
     return /Edit Obat/i.test(title) && !!document.querySelector('#uName');
@@ -18,6 +23,49 @@
         cost: Number(row.querySelector('.u-cost')?.value) || 0
       };
     });
+  }
+
+  function rowHtml(unit, idx){
+    const readonly = idx === 0 ? 'readonly' : '';
+    const disabled = idx === 0 ? 'disabled' : '';
+    return `<div class="uom-row" data-uom-row="${idx}" style="display:grid;grid-template-columns:1fr 1.3fr 1fr 1.2fr 1.2fr auto;gap:8px;align-items:end;margin-bottom:8px"><label>Kode<input class="u-code" value="${esc(unit.code || '')}" placeholder="STRIP" ${readonly}/></label><label>Nama Satuan<input class="u-label" value="${esc(unit.label || '')}" placeholder="Strip"/></label><label>Faktor<input class="u-factor" type="number" min="1" value="${unit.factorToBase || 1}" ${readonly}/></label><label>Harga Jual<input class="u-price" type="number" min="0" value="${unit.price || 0}"/></label><label>Harga Modal<input class="u-cost" type="number" min="0" value="${unit.cost || 0}"/></label><button type="button" class="danger-btn" data-uom-remove="${idx}" ${disabled}>×</button></div>`;
+  }
+
+  function redrawUnitRows(units){
+    const wrap = document.querySelector('#uomRows');
+    if(!wrap) return;
+    wrap.innerHTML = units.map(rowHtml).join('');
+    refreshUnitSelects(units);
+  }
+
+  function refreshUnitSelects(units){
+    ['#uPurchase', '#uSale'].forEach(sel=>{
+      const select = document.querySelector(sel);
+      if(!select) return;
+      const current = select.value || units[0]?.code || '';
+      select.innerHTML = units.map(u=>`<option value="${esc(u.code)}" ${u.code === current ? 'selected' : ''}>${esc(u.label)}</option>`).join('');
+      if(!units.some(u=>u.code === current) && units[0]) select.value = units[0].code;
+    });
+  }
+
+  function addUnitRow(){
+    if(!isProductModal()) return false;
+    const units = readUnitsSnapshot();
+    units.push({code:'', label:'', factorToBase:1, price:0, cost:0});
+    redrawUnitRows(units);
+    const rows = document.querySelectorAll('[data-uom-row]');
+    const last = rows[rows.length - 1];
+    last?.querySelector('.u-code')?.focus();
+    return true;
+  }
+
+  function removeUnitRow(index){
+    if(!isProductModal() || index <= 0) return false;
+    const units = readUnitsSnapshot();
+    if(units.length <= 1) return false;
+    units.splice(index, 1);
+    redrawUnitRows(units);
+    return true;
   }
 
   function snapshotEditForm(){
@@ -61,6 +109,25 @@
   }
 
   document.addEventListener('click', function(e){
+    const addBtn = e.target.closest('#uomAdd');
+    if(addBtn && isProductModal()){
+      const before = document.querySelectorAll('[data-uom-row]').length;
+      setTimeout(()=>{
+        const after = document.querySelectorAll('[data-uom-row]').length;
+        if(after <= before) addUnitRow();
+      }, 0);
+      return;
+    }
+
+    const removeBtn = e.target.closest('[data-uom-remove]');
+    if(removeBtn && isProductModal()){
+      const index = Number(removeBtn.dataset.uomRemove);
+      setTimeout(()=>{
+        if(document.querySelector(`[data-uom-row="${index}"]`)) removeUnitRow(index);
+      }, 0);
+      return;
+    }
+
     const btn = e.target.closest('#modalSave');
     if(!btn || !isEditProductModal()) return;
     const snap = snapshotEditForm();
@@ -68,5 +135,5 @@
     setTimeout(()=>applySnapshot(snap), 0);
   }, true);
 
-  window.ApotekKilatLocalEditProductFix = {snapshotEditForm, applySnapshot};
+  window.ApotekKilatLocalEditProductFix = {snapshotEditForm, applySnapshot, addUnitRow, removeUnitRow};
 })();
