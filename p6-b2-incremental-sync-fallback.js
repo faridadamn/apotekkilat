@@ -9,13 +9,13 @@
   const isUuid = id => UUID_RE.test(String(id || ''));
   const n = v => Number(v) || 0;
   const iso = v => v ? new Date(v).toISOString() : new Date().toISOString();
-  const dateOnly = v => v ? new Date(v).toISOString().slice(0,10) : null;
   const clone = v => JSON.parse(JSON.stringify(v || null));
   const cloudReady = () => !!(window.ApotekKilatSupabaseData && window.ApotekKilatSupabaseData.getMode && window.ApotekKilatSupabaseData.getMode() === 'cloud' && typeof supabaseClient !== 'undefined' && supabaseClient);
   const pharmacyId = () => window.ApotekKilatSupabaseData && window.ApotekKilatSupabaseData.getPharmacyId ? window.ApotekKilatSupabaseData.getPharmacyId() : null;
   const membership = () => window.ApotekKilatSupabaseData && window.ApotekKilatSupabaseData.getMembership ? window.ApotekKilatSupabaseData.getMembership() : null;
   const setSyncStatus = status => window.dispatchEvent(new CustomEvent('apotekkilat:sync-status', {detail:{status}}));
 
+  const relationIds = {priceListCustomers:new Map()};
   let baseline = '{}';
   let syncing = false;
   let queued = false;
@@ -23,6 +23,10 @@
   function ensureId(row, prefix){
     if(row && !isUuid(row.id)) row.id = uuid();
     return row && row.id;
+  }
+  function stableRelationId(bucket, key){
+    if(!relationIds[bucket].has(key)) relationIds[bucket].set(key, uuid());
+    return relationIds[bucket].get(key);
   }
   function stableJson(value){ return JSON.stringify(value || {}); }
   function getSnapshot(){
@@ -98,7 +102,7 @@
         end_date:(pl.dateRange && pl.dateRange.end) || null
       });
       (pl.customerIds || []).forEach(cid=>{
-        if(isUuid(cid)) customers.push({id:uuid(), pharmacy_id:pid, price_list_id:pl.id, customer_id:cid});
+        if(isUuid(cid)) customers.push({id:stableRelationId('priceListCustomers', `${pl.id}:${cid}`), pharmacy_id:pid, price_list_id:pl.id, customer_id:cid});
       });
       (pl.rules || []).forEach(r=>{
         ensureId(r, 'plr');
@@ -207,7 +211,7 @@
       console.error('P6 B2 fallback sync gagal:', err);
       setSyncStatus('error');
       if(typeof toast === 'function') toast(err.message || 'Fallback sync Supabase gagal', 'err');
-      if(window.supabaseClient && pid){
+      if(cloudReady() && pid){
         try{
           await supabaseClient.rpc('log_sync_failure', {p_payload:{
             pharmacy_id:pid,
