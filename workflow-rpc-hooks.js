@@ -5,6 +5,7 @@
   const isUuid = id => UUID_RE.test(String(id || ''));
   const n = v => Number(v) || 0;
   const ts = v => v ? new Date(v).toISOString() : new Date().toISOString();
+  const asyncUi = () => window.ApotekKilatAsyncAction;
 
   function cloudReady(){
     return !!(window.ApotekKilatSupabaseData && window.ApotekKilatSupabaseData.getMode && window.ApotekKilatSupabaseData.getMode() === 'cloud' && supabaseClient);
@@ -61,24 +62,27 @@
     const soBtn = e.target.closest('[data-so-finish]');
     if(soBtn && cloudReady()){
       e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
-      const id = soBtn.dataset.soFinish;
-      const so = (DB.stockOpnames||[]).find(x=>x.id===id);
-      if(!so) return toast('Stock opname tidak ditemukan','err');
-      syncStockOpnameInputs(so);
-      const invalid = (so.items||[]).find(x=>Number(x.diff)!==0 && !x.reason);
-      if(invalid) return toast('Semua produk dengan selisih wajib memiliki alasan','err');
-      try{
-        await writeStockOpname(so);
-        const {data, error} = await supabaseClient.rpc('post_stock_opname', {p_stock_opname_id: so.id});
-        if(error) throw error;
-        so.status = data && data.status ? data.status : 'Posted';
-        so.completedAt = Date.now();
-        so.postedAt = Date.now();
-        so.journalEntryId = data && data.journal_entry_id ? data.journal_entry_id : null;
-        localOnlySave();
-        render();
-        toast('Stock opname diposting via RPC. Stok hanya diubah oleh server.');
-      }catch(err){ console.error(err); toast(err.message || 'Gagal posting stock opname via RPC','err'); }
+      const task = async ()=>{
+        const id = soBtn.dataset.soFinish;
+        const so = (DB.stockOpnames||[]).find(x=>x.id===id);
+        if(!so) return toast('Stock opname tidak ditemukan','err');
+        syncStockOpnameInputs(so);
+        const invalid = (so.items||[]).find(x=>Number(x.diff)!==0 && !x.reason);
+        if(invalid) return toast('Semua produk dengan selisih wajib memiliki alasan','err');
+        try{
+          await writeStockOpname(so);
+          const {data, error} = await supabaseClient.rpc('post_stock_opname', {p_stock_opname_id: so.id});
+          if(error) throw error;
+          so.status = data && data.status ? data.status : 'Posted';
+          so.completedAt = Date.now();
+          so.postedAt = Date.now();
+          so.journalEntryId = data && data.journal_entry_id ? data.journal_entry_id : null;
+          localOnlySave();
+          render();
+          toast('Stock opname diposting via RPC. Stok hanya diubah oleh server.');
+        }catch(err){ console.error(err); toast(err.message || 'Gagal posting stock opname via RPC','err'); }
+      };
+      return asyncUi() ? asyncUi().run(soBtn, task, {label:'Memproses...'}) : task();
     }
   }, true);
 })();
