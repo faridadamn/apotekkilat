@@ -3,6 +3,7 @@
 (function(){
   const LOCAL_USER_ID = 'local-owner';
   const LOCAL_EMAIL = 'owner@local.apotekkilat';
+  let cloudLoginRequested = false;
 
   function isCloudMode(){
     return !!(window.ApotekKilatSupabaseData &&
@@ -16,10 +17,6 @@
       token_type: 'local',
       user: {id: LOCAL_USER_ID, email: LOCAL_EMAIL, app_metadata:{}, user_metadata:{full_name:'Owner Lokal'}}
     };
-  }
-
-  function isLocalSession(){
-    return !!(authSession && authSession.user && authSession.user.id === LOCAL_USER_ID);
   }
 
   function looksLikeOriginalSeed(){
@@ -77,7 +74,7 @@
   }
 
   async function startLocalFreeTier(){
-    if(isCloudMode()) return;
+    if(cloudLoginRequested || isCloudMode()) return;
     normalizeFreeTierData();
     authSession = localSession();
     hideAuthForLocal();
@@ -91,9 +88,32 @@
     if(avatar) avatar.textContent = 'OL';
   }
 
+  function openCloudLogin(){
+    cloudLoginRequested = true;
+    authSession = null;
+    const app = document.querySelector('.app');
+    const auth = document.querySelector('#authScreen');
+    if(app) app.classList.add('locked');
+    if(auth) auth.classList.remove('hidden');
+    if(typeof setAuthMode === 'function') setAuthMode('login');
+    const notice = document.querySelector('#authConfigNotice');
+    if(notice){
+      notice.textContent = isSupabaseConfigured() ? 'Masuk untuk aktivasi / akses Cloud. Mode lokal tetap tersimpan di perangkat ini.' : 'Isi dulu Supabase URL dan publishable key di supabase-config.js untuk login Cloud.';
+      notice.classList.add('show');
+    }
+    const subtitle = document.querySelector('#authSubtitle');
+    if(subtitle) subtitle.textContent = 'Login hanya diperlukan untuk mode Cloud. Free tier lokal bisa dipakai tanpa akun.';
+  }
+
+  function cancelCloudLogin(){
+    cloudLoginRequested = false;
+    startLocalFreeTier();
+  }
+
   const originalShowAuthGate = typeof showAuthGate === 'function' ? showAuthGate : null;
   if(originalShowAuthGate){
     showAuthGate = function(message){
+      if(cloudLoginRequested) return originalShowAuthGate(message);
       if(!isCloudMode()){
         startLocalFreeTier();
         return;
@@ -102,7 +122,7 @@
     };
   }
 
-  window.ApotekKilatFreeTier = {startLocalFreeTier, normalizeFreeTierData};
+  window.ApotekKilatFreeTier = {startLocalFreeTier, normalizeFreeTierData, openCloudLogin, cancelCloudLogin};
 
   // Explicit auth fallback: every first-run/local/no-session path ends in productive Owner mode.
   setTimeout(startLocalFreeTier, 0);
