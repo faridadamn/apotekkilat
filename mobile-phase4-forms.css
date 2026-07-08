@@ -1,5 +1,6 @@
 /* Mobile UX Phase 4 — modal and form polish.
-   Mobile-only. No business logic changes. */
+   Mobile-only. No business logic changes.
+   Phase 5 POS polish is appended and remains mobile-only. */
 
 @media(max-width:720px){
   .modal-wrap{
@@ -114,4 +115,80 @@
   .modal{padding-inline:14px!important}
   .actions{margin-inline:-14px!important;padding-inline:14px!important}
   .form input,.form select,.form textarea{font-size:14px!important}
+}
+
+/* Mobile UX Phase 5 — POS/kasir mobile polish.
+   No checkout, pricing, stock, prescription, or sync logic changes. */
+@media(max-width:720px){
+  .pos{display:grid!important;grid-template-columns:1fr!important;gap:12px!important}
+  .pos > .card:first-child,.pos .product-grid,.pos .tools{min-width:0}
+
+  .pos .tools{
+    position:sticky;
+    top:58px;
+    z-index:10;
+    margin:0 -2px 12px;
+    padding:8px 0 10px;
+    background:linear-gradient(180deg,#f6faf8 70%,rgba(246,250,248,0));
+  }
+  .pos .tools input,.pos .tools select{min-height:44px;border-radius:13px}
+
+  .product-grid{grid-template-columns:1fr!important;gap:10px!important}
+  .product{
+    display:grid;
+    grid-template-columns:1fr auto;
+    align-items:start;
+    gap:8px 12px;
+    padding:14px!important;
+    border-radius:16px!important;
+    box-shadow:0 5px 16px rgba(31,77,64,.04);
+  }
+  .product h4{grid-column:1 / -1;margin:0 0 2px!important;font-size:14px!important;line-height:1.3}
+  .product p{grid-column:1;font-size:11px!important;line-height:1.45}
+  .product strong{grid-column:1;margin-top:4px!important;font-size:17px!important}
+  .product button,.product .primary,.product .outline{
+    grid-column:2;
+    grid-row:2 / span 2;
+    align-self:center;
+    min-width:44px;
+    min-height:44px;
+    padding:10px 12px!important;
+    border-radius:13px!important;
+  }
+
+  .pos > .card:last-child{
+    position:sticky;
+    bottom:0;
+    z-index:11;
+    margin:0 -12px -24px;
+    padding:14px 12px calc(14px + env(safe-area-inset-bottom,0px))!important;
+    border-radius:18px 18px 0 0!important;
+    box-shadow:0 -16px 42px rgba(6,28,22,.12);
+    border-left:0;
+    border-right:0;
+    border-bottom:0;
+  }
+  .pos > .card:last-child .title{margin-bottom:8px;font-size:14px}
+  .cartline{gap:9px!important;padding:10px 0!important}
+  .cartline b,.cartline strong{font-size:13px;line-height:1.3}
+  .cartline small,.cartline p{font-size:11px;line-height:1.35}
+  .qty{display:inline-flex;align-items:center;gap:8px;min-height:34px;padding:6px 9px!important;border-radius:10px!important;background:#f8fbfa}
+  .qty button{min-width:24px;min-height:24px;display:grid;place-items:center;border-radius:8px}
+  .total{font-size:13px;padding:6px 0!important}
+  .total.big{position:relative;margin-top:6px;padding-top:12px!important;border-top:1px solid var(--line);font-size:18px!important}
+  .pos > .card:last-child .primary,.pos > .card:last-child button.primary{
+    width:100%;
+    min-height:48px;
+    border-radius:14px!important;
+    margin-top:10px;
+    font-size:15px;
+    box-shadow:0 9px 24px rgba(11,169,102,.26);
+  }
+  .pos > .card:last-child .outline,.pos > .card:last-child .danger-btn{min-height:42px;border-radius:12px!important}
+}
+
+@media(max-width:420px){
+  .pos > .card:last-child{margin-left:-10px;margin-right:-10px}
+  .product{grid-template-columns:1fr}
+  .product button,.product .primary,.product .outline{grid-column:1;grid-row:auto;width:100%}
 }
