@@ -1,5 +1,9 @@
 /* Iterasi 2 — Mobile release readiness layer. Does not modify desktop style.css. */
 
+.ak2-busy{opacity:.82;cursor:wait!important;pointer-events:none;display:inline-flex!important;align-items:center;justify-content:center;gap:8px;}
+.ak2-spinner{width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:999px;display:inline-block;animation:ak2spin .75s linear infinite;}
+@keyframes ak2spin{to{transform:rotate(360deg)}}
+
 /* The base style.css collapses sidebar labels below 1100px. For this app, labels must remain visible on tablet / narrow desktop widths; only explicit collapse or mobile drawer should hide them. */
 @media(min-width:721px) and (max-width:1100px){
   .app{grid-template-columns:238px 1fr!important;}
