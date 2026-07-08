@@ -18,6 +18,10 @@
     };
   }
 
+  function isLocalSession(){
+    return !!(authSession && authSession.user && authSession.user.id === LOCAL_USER_ID);
+  }
+
   function looksLikeOriginalSeed(){
     const branchNames = (DB.branches || []).map(b => b.name).join('|');
     const userNames = (DB.users || []).map(u => u.name).join('|');
@@ -87,9 +91,22 @@
     if(avatar) avatar.textContent = 'OL';
   }
 
+  const originalShowAuthGate = typeof showAuthGate === 'function' ? showAuthGate : null;
+  if(originalShowAuthGate){
+    showAuthGate = function(message){
+      if(isLocalSession() && !isCloudMode()){
+        hideAuthForLocal();
+        return;
+      }
+      return originalShowAuthGate(message);
+    };
+  }
+
   window.ApotekKilatFreeTier = {startLocalFreeTier, normalizeFreeTierData};
 
-  // Give the original auth bootstrap one tick to finish, then unlock local mode when no cloud session is active.
+  // Give async Supabase session detection a short window; if no cloud tenant is active, keep free tier unlocked.
   setTimeout(startLocalFreeTier, 0);
+  setTimeout(startLocalFreeTier, 600);
+  setTimeout(startLocalFreeTier, 1800);
   window.addEventListener('apotekkilat:local-mode', startLocalFreeTier);
 })();
