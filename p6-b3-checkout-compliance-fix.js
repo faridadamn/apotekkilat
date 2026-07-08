@@ -1,6 +1,7 @@
 /* P6 B3 — Final checkout compliance pipeline.
    Restores prescription validation, price-list pricing, and multi-UOM base quantity before cloud RPC.
-   Loaded last so it wins over earlier global checkout overrides. */
+   Loaded last so it wins over earlier global checkout overrides.
+   P6 P1: also uses diff-by-id transaction targeting to avoid metadata attaching to DB.transactions[0]. */
 (function(){
   const uuid = () => crypto.randomUUID();
   const n = v => Number(v) || 0;
@@ -98,6 +99,22 @@
       tx.items.map(it=>`${it.name} x${it.qty} ${it.unitLabel || it.unitCode || ''}\n  ${fmt(it.price*it.qty)}${it.discountAmount?` · Diskon ${fmt(it.discountAmount)}`:''}`).join('\n')+
       `\n${'-'.repeat(28)}\nSubtotal: ${fmt(tx.subtotal)}\nDiskon: ${fmt(tx.discountTotal || 0)}\nPPN 11%: ${fmt(tx.tax)}\nTOTAL: ${fmt(tx.total)}\nBayar: ${tx.payment}`;
   }
+  function attachComplianceMetadata(tx, model){
+    if(!tx || !model) return;
+    tx.prescriptionId = tx.prescriptionId || S.cartPrescriptionId || S.selectedPrescriptionId || null;
+    tx.priceListIds = model.priceListIds || tx.priceListIds || [];
+    tx.discountTotal = model.discountTotal || tx.discountTotal || 0;
+    tx.items = (tx.items || []).map((it, idx)=>{
+      const src = model.items[idx] || {};
+      return {...it,
+        golongan:it.golongan || src.golongan,
+        originalPrice:it.originalPrice == null ? src.originalPrice : it.originalPrice,
+        discountAmount:it.discountAmount == null ? src.discountAmount : it.discountAmount,
+        priceListId:it.priceListId || src.priceListId || null,
+        priceListName:it.priceListName || src.priceListName || null
+      };
+    });
+  }
   async function checkoutCloud(model){
     const branchId = DB.activeBranchId || (DB.branches[0] && DB.branches[0].id);
     if(!branchId) throw new Error('Cabang aktif belum tersedia');
@@ -114,17 +131,10 @@
     const r = data || {};
     const returnedItems = (r.items || model.items).map((it, idx)=>{
       const fallback = model.items[idx] || {};
-      return {
-        id:it.id || fallback.id || uuid(), productId:it.product_id || fallback.productId,
-        name:it.product_name || fallback.name, unitCode:it.unit_code || fallback.unitCode,
-        unitLabel:fallback.unitLabel, qty:n(it.qty || fallback.qty), baseQty:n(it.base_qty || fallback.baseQty),
-        price:n(it.price == null ? fallback.price : it.price), originalPrice:n(it.original_price == null ? fallback.originalPrice : it.original_price),
-        discountAmount:n(it.discount_amount == null ? fallback.discountAmount : it.discount_amount),
-        priceListId:it.price_list_id || fallback.priceListId || null, priceListName:it.price_list_name || fallback.priceListName || null,
-        costBase:n(it.cost_base == null ? fallback.costBase : it.cost_base), golongan:it.drug_class || fallback.golongan
-      };
+      return {id:it.id || fallback.id || uuid(), productId:it.product_id || fallback.productId, name:it.product_name || fallback.name, unitCode:it.unit_code || fallback.unitCode, unitLabel:fallback.unitLabel, qty:n(it.qty || fallback.qty), baseQty:n(it.base_qty || fallback.baseQty), price:n(it.price == null ? fallback.price : it.price), originalPrice:n(it.original_price == null ? fallback.originalPrice : it.original_price), discountAmount:n(it.discount_amount == null ? fallback.discountAmount : it.discount_amount), priceListId:it.price_list_id || fallback.priceListId || null, priceListName:it.price_list_name || fallback.priceListName || null, costBase:n(it.cost_base == null ? fallback.costBase : it.cost_base), golongan:it.drug_class || fallback.golongan};
     });
-    const tx = {id:r.transaction_id, code:r.code, customerId:r.customer_id || S.cartCustomerId || null, branchId:r.branch_id || branchId, items:returnedItems, subtotal:n(r.subtotal), discountTotal:n(r.discount_total), tax:n(r.tax), total:n(r.total), payment:r.payment_method || payload.payment_method, status:'Selesai', time:Date.now(), prescriptionId:payload.prescription_id, priceListIds:r.price_list_ids || model.priceListIds};
+    const tx = {id:r.transaction_id, code:r.code, customerId:r.customer_id || S.cartCustomerId || null, branchId:r.branch_id || branchId, items:returnedItems, subtotal:n(r.subtotal), discountTotal:n(r.discount_total || model.discountTotal), tax:n(r.tax), total:n(r.total), payment:r.payment_method || payload.payment_method, status:'Selesai', time:Date.now(), prescriptionId:payload.prescription_id, priceListIds:r.price_list_ids || model.priceListIds};
+    attachComplianceMetadata(tx, model);
     DB.transactions.unshift(tx);
     returnedItems.forEach(it=>{ const p=DB.products.find(x=>x.id===it.productId); if(p) p.stock=Math.max(n(p.stock)-n(it.baseQty||it.qty),0); });
     if(S.cartCustomerId && r.points_added){ const c=DB.customers.find(x=>x.id===S.cartCustomerId); if(c) c.points += n(r.points_added); }
@@ -133,12 +143,15 @@
   }
   function checkoutLocal(model){
     const branchId = DB.activeBranchId || (DB.branches[0] && DB.branches[0].id);
+    const oldIds = new Set(DB.transactions.map(t=>t.id));
     model.items.forEach(it=>{ const p=DB.products.find(x=>x.id===it.productId); if(p) p.stock -= it.baseQty; });
     const tx = {id:uid('t'), code:'TRX-'+String(Date.now()).slice(-9), customerId:S.cartCustomerId, branchId, items:model.items, subtotal:model.subtotal, discountTotal:model.discountTotal, tax:model.tax, total:model.total, payment:S.paymentMethod||'Tunai', status:'Selesai', time:Date.now(), prescriptionId:S.cartPrescriptionId||S.selectedPrescriptionId||null, priceListIds:model.priceListIds};
     DB.transactions.push(tx);
+    const created = DB.transactions.find(t=>!oldIds.has(t.id));
+    attachComplianceMetadata(created || tx, model);
     if(S.cartCustomerId){ const c=DB.customers.find(x=>x.id===S.cartCustomerId); if(c) c.points += Math.floor(tx.total/10000); }
     saveDB();
-    return tx;
+    return created || tx;
   }
 
   const previousCheckout = typeof checkout === 'function' ? checkout : null;
@@ -149,6 +162,7 @@
     catch(err){ toast(err.message || 'Checkout tidak valid','err'); return false; }
     try{
       const tx = cloudReady() ? await checkoutCloud(model) : checkoutLocal(model);
+      attachComplianceMetadata(tx, model);
       S.cart = []; S.cartCustomerId = null; S.cartPrescriptionId = null; S.selectedPrescriptionId = null;
       modal('Transaksi Berhasil', `<div class="receipt">${esc(receiptText(tx))}</div>`, null, {saveLabel:'Tutup'});
       render(); toast(cloudReady()?'Transaksi cloud berhasil via RPC':'Transaksi berhasil dibuat');
@@ -160,5 +174,5 @@
     }
   };
 
-  window.ApotekKilatP6B3CheckoutCompliance = {checkout:()=>checkout(), previousCheckout};
+  window.ApotekKilatP6B3CheckoutCompliance = {checkout:()=>checkout(), previousCheckout, attachComplianceMetadata};
 })();
