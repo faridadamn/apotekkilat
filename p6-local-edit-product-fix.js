@@ -1,6 +1,8 @@
-/* P6 local edit product fix — ensure Edit Obat form persists name/UOM/golongan locally.
+/* P6 local product form fix — ensure UOM and golongan persist locally.
    UI-form persistence guard only. Does not change checkout, sync, RPC, or stock movement logic. */
 (function(){
+  const GOLONGAN = ['Bebas','Bebas Terbatas','Keras','Narkotika','Psikotropika'];
+
   function isProductModal(){
     const title = document.querySelector('#modalTitle')?.textContent || '';
     return /(Tambah Obat|Edit Obat)/i.test(title) && !!document.querySelector('#uName');
@@ -9,6 +11,23 @@
   function isEditProductModal(){
     const title = document.querySelector('#modalTitle')?.textContent || '';
     return /Edit Obat/i.test(title) && !!document.querySelector('#uName');
+  }
+
+  function selectedProduct(){
+    return DB.products.find(p=>p.id === (S && S.selectedProductId));
+  }
+
+  function ensureGolonganField(){
+    if(!isProductModal() || document.querySelector('#drugGolongan')) return;
+    const form = document.querySelector('#modalContent .form');
+    if(!form) return;
+    const current = selectedProduct()?.golongan || 'Bebas';
+    const label = document.createElement('label');
+    label.setAttribute('data-local-golongan-field','1');
+    label.innerHTML = `Golongan Obat<select id="drugGolongan" required>${GOLONGAN.map(g=>`<option value="${g}" ${g === current ? 'selected' : ''}>${g}</option>`).join('')}</select>`;
+    const cat = form.querySelector('#uCat')?.closest('label');
+    if(cat && cat.nextSibling) form.insertBefore(label, cat.nextSibling);
+    else form.appendChild(label);
   }
 
   function readUnitsSnapshot(){
@@ -36,6 +55,7 @@
     if(!wrap) return;
     wrap.innerHTML = units.map(rowHtml).join('');
     refreshUnitSelects(units);
+    ensureGolonganField();
   }
 
   function refreshUnitSelects(units){
@@ -68,8 +88,9 @@
     return true;
   }
 
-  function snapshotEditForm(){
-    if(!isEditProductModal()) return null;
+  function snapshotProductForm(){
+    if(!isProductModal()) return null;
+    ensureGolonganField();
     const units = readUnitsSnapshot();
     const name = document.querySelector('#uName')?.value.trim() || '';
     if(!name || !units.length || units[0].factorToBase !== 1) return null;
@@ -81,7 +102,7 @@
       productId: S && S.selectedProductId,
       name,
       cat: document.querySelector('#uCat')?.value || 'Lainnya',
-      golongan: document.querySelector('#drugGolongan')?.value || null,
+      golongan: document.querySelector('#drugGolongan')?.value || 'Bebas',
       type: base.label,
       units,
       baseUnit: base.code,
@@ -96,21 +117,26 @@
     };
   }
 
-  function applySnapshot(snap){
+  function applySnapshot(snap, beforeIds){
     if(!snap || !window.DB || !Array.isArray(DB.products)) return;
-    const product = DB.products.find(p=>p.id === snap.productId) || DB.products.find(p=>p.name === snap.name);
+    let product = DB.products.find(p=>p.id === snap.productId);
+    if(!product && beforeIds) product = DB.products.find(p=>!beforeIds.has(p.id) && p.name === snap.name);
+    if(!product) product = DB.products.find(p=>p.name === snap.name);
     if(!product) return;
     const payload = {...snap};
     delete payload.productId;
-    if(!payload.golongan) delete payload.golongan;
     Object.assign(product, payload);
     if(typeof saveDB === 'function') saveDB();
     if(typeof render === 'function') render();
   }
 
+  const observer = new MutationObserver(()=>ensureGolonganField());
+  observer.observe(document.body,{childList:true,subtree:true});
+
   document.addEventListener('click', function(e){
     const addBtn = e.target.closest('#uomAdd');
     if(addBtn && isProductModal()){
+      ensureGolonganField();
       const before = document.querySelectorAll('[data-uom-row]').length;
       setTimeout(()=>{
         const after = document.querySelectorAll('[data-uom-row]').length;
@@ -129,11 +155,13 @@
     }
 
     const btn = e.target.closest('#modalSave');
-    if(!btn || !isEditProductModal()) return;
-    const snap = snapshotEditForm();
+    if(!btn || !isProductModal()) return;
+    ensureGolonganField();
+    const beforeIds = new Set((DB.products || []).map(p=>p.id));
+    const snap = snapshotProductForm();
     if(!snap) return;
-    setTimeout(()=>applySnapshot(snap), 0);
+    setTimeout(()=>applySnapshot(snap, beforeIds), 0);
   }, true);
 
-  window.ApotekKilatLocalEditProductFix = {snapshotEditForm, applySnapshot, addUnitRow, removeUnitRow};
+  window.ApotekKilatLocalEditProductFix = {snapshotProductForm, snapshotEditForm:snapshotProductForm, applySnapshot, addUnitRow, removeUnitRow, ensureGolonganField};
 })();
