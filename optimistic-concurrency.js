@@ -1,5 +1,4 @@
-/* Phase P1.4.3 — Optimistic concurrency guard.
-   Prevents legacy broad snapshot flush in cloud mode and uses version-aware updates for key master data. */
+/* Phase P1.4.3/4.4 — Optimistic concurrency + local outbox for non-critical master-data edits. */
 (function(){
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   const uuid = () => crypto.randomUUID();
@@ -14,6 +13,8 @@
   function cloudId(prefix){ return cloudReady() ? uuid() : uid(prefix); }
   function localOnlySave(){ localStorage.setItem(DB_KEY, JSON.stringify(DB)); }
   function bumpLocalVersion(row, returned){ if(row && returned && returned.version) row.version = returned.version; }
+  function isConflict(err){ return err && String(err.message || err).includes(CONFLICT_MESSAGE); }
+  function canQueue(err){ return !isConflict(err) && window.ApotekKilatSyncOutbox && (!navigator.onLine || err); }
 
   async function refreshVersions(){
     if(!cloudReady()) return;
@@ -82,6 +83,17 @@
     bumpLocalVersion(product, data[0]);
   }
 
+  async function insertBatch(product, batch){
+    const insert = await supabaseClient.from('product_batches').insert({
+      id: batch.id, pharmacy_id: pharmacyId(), product_id: product.id,
+      batch_no: batch.batchNo, received_at: batch.received, expired_at: batch.expired || null,
+      qty: n(batch.qty), location: batch.location || 'Gudang Pusat'
+    });
+    if(insert.error) throw insert.error;
+    const upd = await supabaseClient.from('products').update({stock:n(product.stock)}).eq('id', product.id);
+    if(upd.error) throw upd.error;
+  }
+
   async function insertCustomer(customer){
     const {data,error} = await supabaseClient.from('customers').insert({
       id: customer.id, pharmacy_id: pharmacyId(), name: customer.name, phone: customer.phone || null,
@@ -102,9 +114,26 @@
     bumpLocalVersion(customer, data[0]);
   }
 
+  async function saveOrQueue(actionType, payload, fn){
+    try{
+      if(cloudReady() && navigator.onLine) await fn();
+      else throw new Error('Offline');
+      if(window.ApotekKilatSyncOutbox) window.ApotekKilatSyncOutbox.setStatus('synced');
+      return 'synced';
+    }catch(err){
+      if(isConflict(err)) throw err;
+      if(canQueue(err)){
+        window.ApotekKilatSyncOutbox.enqueue(actionType, payload, err);
+        return 'queued';
+      }
+      throw err;
+    }
+  }
+
   openProductForm = function(existing){
     const p = existing || {};
     const expectedVersion = existing ? Number(existing.version || 1) : null;
+    const snapshot = existing ? JSON.parse(JSON.stringify(existing)) : null;
     modal(existing?'Edit Obat':'Tambah Obat', `<div class="form">
       ${existing?`<p class="muted">Version saat dibaca: ${expectedVersion}</p>`:''}
       <label>Nama Obat<input id="fName" value="${esc(p.name||'')}" placeholder="Contoh: Cetirizine 10mg"/></label>
@@ -133,15 +162,40 @@
         DB.products.push(product);
       }
       try{
-        if(cloudReady()) existing ? await updateProductWithVersion(product, expectedVersion) : await insertProduct(product);
-        localOnlySave(); render(); toast(existing?'Obat berhasil diperbarui':'Obat baru berhasil ditambahkan');
-      }catch(err){ console.error(err); toast(err.message || 'Gagal menyimpan obat ke Supabase', 'err'); return false; }
+        const state = await saveOrQueue(existing?'product.update':'product.insert', {product:JSON.parse(JSON.stringify(product)), expectedVersion}, ()=> existing ? updateProductWithVersion(product, expectedVersion) : insertProduct(product));
+        localOnlySave(); render(); toast(state==='queued'?'Obat tersimpan lokal dan diantrikan':'Obat berhasil disimpan');
+      }catch(err){
+        if(snapshot) Object.assign(existing, snapshot);
+        else DB.products = DB.products.filter(x=>x.id!==product.id);
+        console.error(err); toast(err.message || 'Gagal menyimpan obat ke Supabase', 'err'); return false;
+      }
+    });
+  };
+
+  openBatchForm = function(){
+    const p = DB.products.find(x=>x.id===S.selectedProductId); if(!p) return;
+    modal('Tambah Batch', `<div class="form">
+      <label>No. Batch<input id="bNo" placeholder="BCH-${Date.now().toString().slice(-6)}"/></label>
+      <label>Jumlah<input id="bQty" type="number" placeholder="50"/></label>
+      <label>Tanggal Expired<input id="bExp" type="date"/></label>
+      <label>Lokasi<input id="bLoc" value="Gudang Pusat"/></label>
+    </div>`, async ()=>{
+      const qty=Number(document.querySelector('#bQty').value);
+      if(!qty || qty<=0) return toast('Jumlah harus lebih dari 0','err'), false;
+      const oldStock = n(p.stock);
+      const batch = {id:cloudId('pb'), batchNo:document.querySelector('#bNo').value.trim()||('BCH-'+String(Date.now()).slice(-6)), received:new Date().toISOString().slice(0,10), expired:document.querySelector('#bExp').value || p.expired, qty, location:document.querySelector('#bLoc').value||'Gudang Pusat'};
+      p.batches = p.batches||[]; p.batches.push(batch); p.stock = oldStock + qty;
+      try{
+        const state = await saveOrQueue('batch.insert', {product:JSON.parse(JSON.stringify(p)), batch:JSON.parse(JSON.stringify(batch))}, ()=>insertBatch(p,batch));
+        localOnlySave(); render(); toast(state==='queued'?'Batch tersimpan lokal dan diantrikan':'Batch baru ditambahkan, stok diperbarui');
+      }catch(err){ p.stock = oldStock; p.batches = p.batches.filter(x=>x.id!==batch.id); console.error(err); toast(err.message || 'Gagal menyimpan batch', 'err'); return false; }
     });
   };
 
   openCustomerForm = function(existing){
     const c = existing || {};
     const expectedVersion = existing ? Number(existing.version || 1) : null;
+    const snapshot = existing ? JSON.parse(JSON.stringify(existing)) : null;
     modal(existing?'Edit Pelanggan':'Tambah Pelanggan', `<div class="form">
       ${existing?`<p class="muted">Version saat dibaca: ${expectedVersion}</p>`:''}
       <label>Nama<input id="cName" value="${esc(c.name||'')}" placeholder="Nama pelanggan"/></label>
@@ -153,9 +207,13 @@
       if(existing){ existing.name=name; existing.phone=document.querySelector('#cPhone').value||existing.phone; customer = existing; }
       else { customer = {id:cloudId('c'), name, phone:document.querySelector('#cPhone').value||'-', points:0, status:'Aktif'}; DB.customers.unshift(customer); }
       try{
-        if(cloudReady()) existing ? await updateCustomerWithVersion(customer, expectedVersion) : await insertCustomer(customer);
-        localOnlySave(); render(); toast(existing?'Pelanggan diperbarui':'Pelanggan berhasil ditambahkan');
-      }catch(err){ console.error(err); toast(err.message || 'Gagal menyimpan pelanggan ke Supabase', 'err'); return false; }
+        const state = await saveOrQueue(existing?'customer.update':'customer.insert', {customer:JSON.parse(JSON.stringify(customer)), expectedVersion}, ()=> existing ? updateCustomerWithVersion(customer, expectedVersion) : insertCustomer(customer));
+        localOnlySave(); render(); toast(state==='queued'?'Pelanggan tersimpan lokal dan diantrikan':(existing?'Pelanggan diperbarui':'Pelanggan berhasil ditambahkan'));
+      }catch(err){
+        if(snapshot) Object.assign(existing, snapshot);
+        else DB.customers = DB.customers.filter(x=>x.id!==customer.id);
+        console.error(err); toast(err.message || 'Gagal menyimpan pelanggan ke Supabase', 'err'); return false;
+      }
     });
   };
 
@@ -164,7 +222,7 @@
     window.ApotekKilatSupabaseData.scheduleSave = function(db){
       localStorage.setItem(DB_KEY, JSON.stringify(db));
       if(cloudReady()){
-        window.dispatchEvent(new CustomEvent('apotekkilat:sync-status', {detail:{status:'local-only'}}));
+        if(window.ApotekKilatSyncOutbox) window.ApotekKilatSyncOutbox.update('synced');
         return;
       }
       return originalSchedule ? originalSchedule(db) : undefined;
@@ -175,7 +233,15 @@
   showApp = async function(){
     await oldShowApp();
     await refreshVersions();
+    if(window.ApotekKilatSyncOutbox) window.ApotekKilatSyncOutbox.process();
   };
 
-  window.ApotekKilatOptimisticConcurrency = {refreshVersions};
+  window.ApotekKilatOptimisticConcurrency = {
+    refreshVersions,
+    insertProductFromOutbox: insertProduct,
+    updateProductFromOutbox: updateProductWithVersion,
+    insertBatchFromOutbox: insertBatch,
+    insertCustomerFromOutbox: insertCustomer,
+    updateCustomerFromOutbox: updateCustomerWithVersion
+  };
 })();
