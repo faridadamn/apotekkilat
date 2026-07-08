@@ -4,6 +4,7 @@
   const ROLE_OPTIONS = ['Owner','Supervisor','Apoteker','Admin Stok','Purchasing','Kasir','Viewer'];
   const STATUS_OPTIONS = ['Aktif','Nonaktif'];
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i;
+  const LOCAL_OWNER_USER_ID = 'local-owner';
   const ROLE_MATRIX = {
     dashboard:{label:'Dashboard', read:ROLE_OPTIONS, write:ROLE_OPTIONS},
     inventori:{label:'Master produk', read:ROLE_OPTIONS, write:['Owner','Supervisor','Apoteker','Admin Stok']},
@@ -37,9 +38,39 @@
     'export':['Owner','Supervisor']
   };
 
+  function isCloudMode(){
+    return window.ApotekKilatSupabaseData && window.ApotekKilatSupabaseData.getMode && window.ApotekKilatSupabaseData.getMode() === 'cloud';
+  }
+
+  function ensureLocalOwnerMembership(){
+    if(isCloudMode()) return null;
+    DB.users = Array.isArray(DB.users) ? DB.users : [];
+    DB.branches = Array.isArray(DB.branches) ? DB.branches : [];
+    const branchId = DB.activeBranchId || (DB.branches[0] && DB.branches[0].id) || 'b-local-main';
+    if(!DB.branches.length){
+      DB.branches.push({id:branchId, name:(DB.settings && DB.settings.pharmacyName) || 'Apotek Saya', address:(DB.settings && DB.settings.address) || 'Alamat apotek', isMain:true});
+    }
+    DB.activeBranchId = branchId;
+    let owner = DB.users.find(u => u.userId === LOCAL_OWNER_USER_ID && u.status === 'Aktif');
+    if(!owner){
+      owner = DB.users.find(u => u.role === 'Owner' && u.status !== 'Nonaktif');
+    }
+    if(!owner){
+      owner = {id:'u-local-owner', userId:LOCAL_OWNER_USER_ID, name:'Owner Lokal', branchId, role:'Owner', status:'Aktif'};
+      DB.users = [owner];
+    }else{
+      Object.assign(owner, {userId:LOCAL_OWNER_USER_ID, role:'Owner', status:'Aktif', branchId:owner.branchId || branchId});
+      DB.users = [owner];
+    }
+    try{ localStorage.setItem(DB_KEY, JSON.stringify(DB)); }catch(e){}
+    return owner;
+  }
+
   function currentMembership(){
     const uid = authSession && authSession.user ? authSession.user.id : null;
-    return (DB.users || []).find(u => u.userId === uid && u.status === 'Aktif') || null;
+    const exact = (DB.users || []).find(u => u.userId === uid && u.status === 'Aktif');
+    if(exact) return exact;
+    return ensureLocalOwnerMembership();
   }
 
   function currentRole(){
@@ -68,10 +99,6 @@
   function canRunAction(actionName){
     const allowed = ACTION_PERMISSIONS[actionName];
     return !allowed || hasRoleAccess(allowed);
-  }
-
-  function isCloudMode(){
-    return window.ApotekKilatSupabaseData && window.ApotekKilatSupabaseData.getMode && window.ApotekKilatSupabaseData.getMode() === 'cloud';
   }
 
   function pharmacyId(){
@@ -119,13 +146,13 @@
     const users = DB.users || [];
     const meId = authSession && authSession.user ? authSession.user.id : null;
     const owner = canManageUsers();
-    if(!users.length) return '<tr><td colspan="5" class="empty">Belum ada pengguna cloud untuk apotek ini.</td></tr>';
+    if(!users.length) return '<tr><td colspan="5" class="empty">Belum ada pengguna untuk apotek ini.</td></tr>';
     return users.map(u=>{
       const b = DB.branches.find(x=>x.id===u.branchId);
-      const isSelf = u.userId === meId;
-      const actions = owner && !isSelf
+      const isSelf = u.userId === meId || (!isCloudMode() && u.userId === LOCAL_OWNER_USER_ID);
+      const actions = owner && !isSelf && isCloudMode()
         ? `<button class="outline small-btn" data-action="edit-user" data-user-id="${u.id}">Edit</button> <button class="danger-btn" data-action="deactivate-user" data-user-id="${u.id}">${u.status === 'Aktif' ? 'Nonaktifkan' : 'Aktifkan'}</button>`
-        : `<span class="muted">${isSelf ? 'Akun Anda' : 'Owner saja'}</span>`;
+        : `<span class="muted">${isSelf ? 'Akun Anda' : (isCloudMode() ? 'Owner saja' : 'Tersedia di Cloud')}</span>`;
       return `<tr><td><b>${esc(u.name)}</b><br><small class="muted">${esc(u.userId || 'local-demo')}</small></td><td>${esc(b?b.name:'-')}</td><td>${status(u.role,'violet')}</td><td>${status(u.status || 'Aktif', u.status === 'Nonaktif' ? 'warn' : 'ok')}</td><td>${actions}</td></tr>`;
     }).join('');
   }
@@ -152,15 +179,15 @@
     const cloud = isCloudMode();
     const lockedNote = cloud
       ? 'Membership dikunci oleh Supabase RLS. Hanya Owner aktif yang bisa menambah, mengubah role, atau menonaktifkan user.'
-      : 'Mode demo lokal. Pengaturan user tidak disimpan ke Supabase.';
-    return `<section class="page active"><div class="head"><div><h2>Cabang & Hak Akses</h2><p>Kelola cabang apotek dan pengguna.</p></div>${owner?'<button class="primary" data-action="add-branch">＋ Tambah Cabang</button>':''}</div>
-    <div class="grid4">${DB.branches.map(b=>{ const st=branchStats(b); return `<div class="card"><div class="title"><span>${esc(b.name)}</span>${b.isMain?status('Utama','ok'):''}</div><p class="muted">${esc(b.address)}</p><h3>${fmt(st.revenue)}</h3><p class="muted">${st.count} transaksi</p>${owner?`<button class="danger-btn" data-delete-branch="${b.id}">Hapus</button>`:''}</div>`; }).join('')}</div>
+      : 'Mode lokal gratis: 1 apotek, 1 cabang, 1 Owner. Multi-user dan multi-cabang tersedia di paket Cloud.';
+    return `<section class="page active"><div class="head"><div><h2>${cloud ? 'Cabang & Hak Akses' : 'Profil Apotek Lokal'}</h2><p>${cloud ? 'Kelola cabang apotek dan pengguna.' : 'Free tier berjalan di perangkat ini dengan akses Owner penuh.'}</p></div>${owner && cloud?'<button class="primary" data-action="add-branch">＋ Tambah Cabang</button>':''}</div>
+    <div class="grid4">${DB.branches.map(b=>{ const st=branchStats(b); return `<div class="card"><div class="title"><span>${esc(b.name)}</span>${b.isMain?status('Utama','ok'):''}</div><p class="muted">${esc(b.address)}</p><h3>${fmt(st.revenue)}</h3><p class="muted">${st.count} transaksi</p>${owner && cloud?`<button class="danger-btn" data-delete-branch="${b.id}">Hapus</button>`:''}</div>`; }).join('')}</div>
     <div style="height:16px"></div>
     <div class="two">
-      <div class="card"><div class="title"><span>Daftar Pengguna</span>${owner?'<button class="primary" data-action="add-user">＋ Tambah Pengguna</button>':'<span class="muted">Owner saja</span>'}</div>
+      <div class="card"><div class="title"><span>Daftar Pengguna</span>${owner && cloud?'<button class="primary" data-action="add-user">＋ Tambah Pengguna</button>':'<span class="muted">Cloud only</span>'}</div>
       <p class="muted" style="font-size:12px;margin-top:-4px">${lockedNote}</p>
       <table><thead><tr><th>Pengguna</th><th>Cabang</th><th>Peran</th><th>Status</th><th>Aksi</th></tr></thead><tbody>${userRows()}</tbody></table></div>
-      <div class="card"><div class="title"><span>Hak Akses per Peran</span></div>${permissionMatrixHtml()}<p class="muted" style="margin-top:10px;font-size:11px">Catatan: role resmi disimpan sebagai constraint database. UI guard ini tetap harus dilanjutkan dengan RLS/RPC per modul pada phase berikutnya.</p></div>
+      <div class="card"><div class="title"><span>Hak Akses per Peran</span></div>${permissionMatrixHtml()}<p class="muted" style="margin-top:10px;font-size:11px">Catatan: role resmi disimpan sebagai constraint database. UI guard ini tetap dilanjutkan dengan RLS/RPC per modul pada mode cloud.</p></div>
     </div></section>`;
   };
 
@@ -220,6 +247,7 @@
 
   openUserForm = function(existing){
     if(!canManageUsers()) return toast('Hanya Owner yang bisa mengelola pengguna.','err');
+    if(!isCloudMode()) return toast('Multi-user tersedia di paket Cloud. Mode lokal gratis memakai 1 Owner di perangkat ini.', 'err');
     const u = existing || {};
     modal(existing?'Edit Pengguna':'Tambah Pengguna', `<div class="form">
       <label>User ID Supabase Auth<input id="usUserId" value="${esc(u.userId||'')}" ${existing?'disabled':''} placeholder="UUID dari auth.users"/></label>

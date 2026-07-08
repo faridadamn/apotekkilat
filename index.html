@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>ApotekKilat — Sistem Manajemen Apotek</title>
 <link rel="stylesheet" href="style.css"/>
+<link rel="stylesheet" href="ak2-mobile.css"/>
 </head>
 <body>
 <div class="auth-screen" id="authScreen">
@@ -57,7 +58,6 @@
 <script src="multi-uom-ui.js"></script>
 <script src="stock-opname.js"></script>
 <script src="stock-opname-fix.js"></script>
-<script src="stock-opname-batch-fix.js"></script>
 <script src="returns-v2.js"></script>
 <script src="drug-classification.js"></script>
 <script src="price-lists.js"></script>
@@ -78,6 +78,10 @@
 <script src="p6-b3-checkout-compliance-fix.js"></script>
 <script src="p6-n1-soft-delete-sync.js"></script>
 <script src="p6-po-status-sync.js"></script>
+<script src="ak2-free-tier-start.js"></script>
+<script src="ak2-critical-rpc-wiring.js"></script>
+<script src="ak2-tenant-upgrade-entry.js"></script>
+<script src="ak2-mobile.js"></script>
 <script>document.querySelector('#todayDate').textContent=new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'});document.querySelector('#sidebarToggle').onclick=()=>document.querySelector('.app').classList.toggle('sidebar-collapsed');</script>
 </body>
 </html>
