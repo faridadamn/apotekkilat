@@ -50,8 +50,10 @@
       if(!list.length)return toast('Tidak ada resep terverifikasi. Verifikasi resep terlebih dahulu.','err');
       return modal('Resep Terverifikasi Wajib',`<div class="form"><p>Keranjang memuat obat golongan <b>${[...new Set(controlled.map(c=>DB.products.find(p=>p.id===c.id)?.golongan))].join(', ')}</b>.</p><label>Pilih Resep Terverifikasi<select id="checkoutRx"><option value="">Pilih resep</option>${list.map(r=>`<option value="${r.id}">${escText(r.patient)} · ${escText(r.doctor||'-')} · ${r.status}</option>`).join('')}</select></label></div>`,()=>{const id=document.querySelector('#checkoutRx').value;if(!id)return toast('Pilih resep terverifikasi','err'),false;S.cartPrescriptionId=id;return checkout();},{saveLabel:'Lanjutkan Transaksi'});
     }
-    const prior=DB.transactions.length;const result=oldCheckout();
-    if(DB.transactions.length>prior){const tx=DB.transactions[0]||DB.transactions[DB.transactions.length-1];if(tx){tx.prescriptionId=rx.id;tx.items=(tx.items||[]).map(it=>({...it,golongan:itemGolongan(it)}));saveDB();}}
+    const oldIds=new Set(DB.transactions.map(t=>t.id));
+    const result=oldCheckout();
+    const tx=DB.transactions.find(t=>!oldIds.has(t.id));
+    if(tx){tx.prescriptionId=rx.id;tx.items=(tx.items||[]).map(it=>({...it,golongan:itemGolongan(it)}));saveDB();}
     return result;
   };
   document.addEventListener('click',e=>{const b=e.target.closest('[data-uom-checkout]');if(!b)return;e.preventDefault();e.stopImmediatePropagation();checkout();},true);

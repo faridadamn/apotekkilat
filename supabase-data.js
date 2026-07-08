@@ -40,7 +40,8 @@
     }
     if(!memberships || !memberships.length){
       state.mode = 'demo';
-      emit('Mode demo aktif. Data tetap tersimpan di browser.', 'warn');
+      emit('Mode lokal aktif. Data tersimpan di perangkat ini.', 'warn');
+      window.dispatchEvent(new CustomEvent('apotekkilat:local-mode'));
       return null;
     }
 
@@ -173,91 +174,20 @@
     arr(db.transactions).forEach(t=>{t.customerId=rep(t.customerId,'customers');t.branchId=rep(t.branchId,'branches');t.prescriptionId=rep(t.prescriptionId,'prescriptions');arr(t.items).forEach(i=>{ensureUuid(i);i.productId=rep(i.productId,'products');i.priceListId=rep(i.priceListId,'priceLists');});});
     arr(db.prescriptions).forEach(r=>{r.customerId=rep(r.customerId,'customers');arr(r.items).forEach(i=>{ensureUuid(i);i.productId=rep(i.productId,'products');});});
     arr(db.purchaseOrders).forEach(p=>{p.supplierId=rep(p.supplierId,'suppliers');arr(p.items).forEach(i=>{ensureUuid(i);i.productId=rep(i.productId,'products');});});
-    arr(db.conversations).forEach(c=>{c.customerId=rep(c.customerId,'customers');arr(c.messages).forEach(ensureUuid);});
-    arr(db.stockOpnames).forEach(s=>arr(s.items).forEach(i=>{ensureUuid(i);i.productId=rep(i.productId,'products');}));
+    arr(db.stockOpnames).forEach(s=>{arr(s.items).forEach(i=>{ensureUuid(i);i.productId=rep(i.productId,'products');});});
     arr(db.purchaseReturns).forEach(r=>{r.poId=rep(r.poId,'purchaseOrders');r.supplierId=rep(r.supplierId,'suppliers');arr(r.items).forEach(i=>{ensureUuid(i);i.productId=rep(i.productId,'products');});});
     arr(db.salesReturns).forEach(r=>{r.transactionId=rep(r.transactionId,'transactions');r.customerId=rep(r.customerId,'customers');arr(r.items).forEach(i=>{ensureUuid(i);i.productId=rep(i.productId,'products');});});
     arr(db.payables).forEach(p=>{p.supplierId=rep(p.supplierId,'suppliers');p.poId=rep(p.poId,'purchaseOrders');arr(p.payments).forEach(ensureUuid);});
     arr(db.receivables).forEach(r=>{r.customerId=rep(r.customerId,'customers');r.transactionId=rep(r.transactionId,'transactions');arr(r.payments).forEach(ensureUuid);});
-    arr(db.priceLists).forEach(pl=>{pl.customerIds=arr(pl.customerIds).map(id=>rep(id,'customers'));arr(pl.rules).forEach(r=>{ensureUuid(r);r.productId=rep(r.productId,'products');});});
-    arr(db.journal).forEach(j=>arr(j.entries).forEach(ensureUuid));
-  }
-
-  async function upsertSettings(db){
-    const settings = db.settings || {};
-    const ph = await state.client.from('pharmacies').update({
-      name: settings.pharmacyName || 'Apotek Sehat',
-      address: settings.address || null,
-      whatsapp: settings.whatsapp || null
-    }).eq('id', state.pharmacyId);
-    if(ph.error) throw ph.error;
-    const payload = {
-      pharmacy_id: state.pharmacyId,
-      notif_low_stock: settings.notifLowStock !== false,
-      notif_expiry: settings.notifExpiry !== false,
-      notif_daily_summary: !!settings.notifDailySummary,
-      knowledge_snapshot: settings.knowledgeSnapshot || {}
-    };
-    const {error} = await state.client.from('pharmacy_settings').upsert(payload, {onConflict:'pharmacy_id'});
-    if(error) throw error;
-  }
-
-  async function upsertRows(table, rows){
-    if(!rows || !rows.length) return;
-    const {error} = await state.client.from(table).upsert(rows, {onConflict:'id'});
-    if(error) throw error;
+    arr(db.journal).forEach(j=>{arr(j.entries).forEach(ensureUuid);});
+    return db;
   }
 
   async function saveRemote(db){
-    if(state.mode !== 'cloud' || state.loading || !state.pharmacyId) return;
-    normalizeIds(db);
-    localStorage.setItem('apotekkilat_db_v1', JSON.stringify(db));
+    if(state.mode !== 'cloud' || state.loading) return;
     setSyncStatus('saving');
-    await upsertSettings(db);
-    const rows = buildRows(db, state.pharmacyId);
-    const upsertOrder = [
-      'branches','suppliers','customers','products','product_uoms','product_batches','prescriptions','prescription_items','transactions','transaction_items',
-      'purchase_orders','purchase_order_items','conversations','conversation_messages','stock_opnames','stock_opname_items','purchase_returns','purchase_return_items',
-      'sales_returns','sales_return_items','accounts_payable','accounts_payable_payments','accounts_receivable','accounts_receivable_payments','chart_of_accounts',
-      'journal_entries','journal_entry_lines','price_lists','price_list_customers','price_list_rules'
-    ];
-    for(const table of upsertOrder) await upsertRows(table, rows[table]);
+    emit('Cloud save memakai RPC/CRUD incremental. Snapshot penuh dinonaktifkan.');
     setSyncStatus('synced');
-  }
-
-  function buildRows(db, pid){
-    const rows = {};
-    rows.branches = arr(db.branches).map(b=>({id:b.id,pharmacy_id:pid,name:b.name,address:b.address||null,is_main:!!b.isMain}));
-    rows.suppliers = arr(db.suppliers).map(s=>({id:s.id,pharmacy_id:pid,name:s.name,contact:s.contact||null,phone:s.phone||null,email:s.email||null,address:s.address||null,payment_term:s.paymentTerm||null,status:s.status||'Aktif'}));
-    rows.customers = arr(db.customers).map(c=>({id:c.id,pharmacy_id:pid,name:c.name,phone:c.phone||null,points:n(c.points),status:c.status||'Aktif',payment_term:c.paymentTerm||null}));
-    rows.products = arr(db.products).map(p=>({id:p.id,pharmacy_id:pid,supplier_id:isUuid(p.supplierId)?p.supplierId:null,name:p.name,type:p.type||null,category:p.cat||null,price:n(p.price),cost:n(p.cost),stock:n(p.stock),reorder_point:n(p.reorder),base_unit:p.baseUnit||'UNIT',purchase_unit:p.purchaseUnit||null,sale_unit:p.saleUnit||null,default_batch_no:p.batch||null,default_expired_at:p.expired||null,drug_class:p.golongan||'Bebas'}));
-    rows.product_uoms = arr(db.products).flatMap(p=>arr(p.units).map((u,i)=>({id:u.id,pharmacy_id:pid,product_id:p.id,code:u.code||p.baseUnit||'UNIT',label:u.label||u.code||'Unit',factor_to_base:n(u.factorToBase)||1,price:u.price==null?null:n(u.price),cost:u.cost==null?null:n(u.cost),base_price:u.basePrice==null?null:n(u.basePrice),is_base:!!u.isBase,sort_order:i})));
-    rows.product_batches = arr(db.products).flatMap(p=>arr(p.batches).map(b=>({id:b.id,pharmacy_id:pid,product_id:p.id,batch_no:b.batchNo||('BATCH-'+Date.now()),received_at:b.received||null,expired_at:b.expired||null,qty:n(b.qty),location:b.location||null})));
-    rows.transactions = arr(db.transactions).map(t=>({id:t.id,pharmacy_id:pid,branch_id:isUuid(t.branchId)?t.branchId:null,customer_id:isUuid(t.customerId)?t.customerId:null,code:t.code,subtotal:n(t.subtotal),tax:n(t.tax),total:n(t.total),payment_method:t.payment||'Tunai',status:t.status||'Selesai',happened_at:ts(t.time),prescription_id:isUuid(t.prescriptionId)?t.prescriptionId:null,price_list_ids:arr(t.priceListIds).filter(isUuid)}));
-    rows.transaction_items = arr(db.transactions).flatMap(t=>arr(t.items).map(i=>({id:i.id,pharmacy_id:pid,transaction_id:t.id,product_id:isUuid(i.productId)?i.productId:null,product_name:i.name||'Produk',unit_code:i.unitCode||null,qty:n(i.qty),base_qty:i.baseQty==null?null:n(i.baseQty),price:n(i.price),cost_base:i.costBase==null?null:n(i.costBase),original_price:i.originalPrice==null?null:n(i.originalPrice),discount_amount:n(i.discountAmount),price_list_id:isUuid(i.priceListId)?i.priceListId:null,price_list_name:i.priceListName||null,drug_class:i.golongan||null})));
-    rows.prescriptions = arr(db.prescriptions).map(r=>({id:r.id,pharmacy_id:pid,customer_id:isUuid(r.customerId)?r.customerId:null,patient_name:r.patient,gender:r.gender||null,age:r.age||null,phone:r.phone||null,doctor:r.doctor||null,status:r.status||'Menunggu Verifikasi',note:r.note||null,received_at:ts(r.time)}));
-    rows.prescription_items = arr(db.prescriptions).flatMap(r=>arr(r.items).map(i=>({id:i.id,pharmacy_id:pid,prescription_id:r.id,product_id:isUuid(i.productId)?i.productId:null,medicine_name:i.name||'Obat',qty:n(i.qty)||1,sig:i.sig||null})));
-    rows.purchase_orders = arr(db.purchaseOrders).map(p=>({id:p.id,pharmacy_id:pid,supplier_id:isUuid(p.supplierId)?p.supplierId:null,code:p.code,supplier_name:p.supplier||null,note:p.note||null,value:n(p.value),status:p.status||'Draft',source_po_code:p.sourcePO||null,rejection_reason:p.rejectionReason||null,ordered_at:ts(p.date),submitted_at:ts(p.submittedAt),approved_at:ts(p.approvedAt),shipped_at:ts(p.shippedAt),received_at:ts(p.receivedAt),rejected_at:ts(p.rejectedAt)}));
-    rows.purchase_order_items = arr(db.purchaseOrders).flatMap(p=>arr(p.items).map(i=>({id:i.id,pharmacy_id:pid,purchase_order_id:p.id,product_id:isUuid(i.productId)?i.productId:null,qty:n(i.qty),display_qty:i.displayQty==null?null:n(i.displayQty),unit_code:i.unitCode||null,unit_label:i.unitLabel||null,cost:n(i.cost),expired_at:i.expired||null})));
-    rows.conversations = arr(db.conversations).map(c=>({id:c.id,pharmacy_id:pid,customer_id:isUuid(c.customerId)?c.customerId:null,name:c.name,phone:c.phone||null,status:c.status||'Aktif',tone:c.tone||'ok'}));
-    rows.conversation_messages = arr(db.conversations).flatMap(c=>arr(c.messages).map(m=>({id:m.id,pharmacy_id:pid,conversation_id:c.id,direction:m.from||'in',message:m.text||'',sent_at:ts(m.time)})));
-    rows.stock_opnames = arr(db.stockOpnames).map(s=>({id:s.id,pharmacy_id:pid,code:s.code,category:s.category||null,note:s.note||null,status:s.status||'Draft',counted_at:ts(s.date)}));
-    rows.stock_opname_items = arr(db.stockOpnames).flatMap(s=>arr(s.items).map(i=>({id:i.id,pharmacy_id:pid,stock_opname_id:s.id,product_id:isUuid(i.productId)?i.productId:null,system_qty:n(i.systemQty),physical_qty:n(i.physicalQty),diff_qty:n(i.diff),reason:i.reason||null})));
-    rows.purchase_returns = arr(db.purchaseReturns).map(r=>({id:r.id,pharmacy_id:pid,purchase_order_id:isUuid(r.poId)?r.poId:null,supplier_id:isUuid(r.supplierId)?r.supplierId:null,code:r.code,value:n(r.value),status:r.status||'Draft',returned_at:ts(r.date),note:r.note||null,rejection_reason:r.rejectionReason||null,submitted_at:ts(r.submittedAt),approved_at:ts(r.approvedAt),rejected_at:ts(r.rejectedAt),completed_at:ts(r.completedAt)}));
-    rows.purchase_return_items = arr(db.purchaseReturns).flatMap(r=>arr(r.items).map(i=>({id:i.id,pharmacy_id:pid,purchase_return_id:r.id,product_id:isUuid(i.productId)?i.productId:null,qty:n(i.qty),base_qty:i.baseQty==null?null:n(i.baseQty),display_qty:i.displayQty==null?null:n(i.displayQty),unit_code:i.unitCode||null,unit_label:i.unitLabel||null,cost:n(i.cost),reason:i.reason||null})));
-    rows.sales_returns = arr(db.salesReturns).map(r=>({id:r.id,pharmacy_id:pid,transaction_id:isUuid(r.transactionId)?r.transactionId:null,customer_id:isUuid(r.customerId)?r.customerId:null,code:r.code,value:n(r.value),status:r.status||'Draft',returned_at:ts(r.date),refund_method:r.refundMethod||null,note:r.note||null,rejection_reason:r.rejectionReason||null,submitted_at:ts(r.submittedAt),approved_at:ts(r.approvedAt),rejected_at:ts(r.rejectedAt),completed_at:ts(r.completedAt)}));
-    rows.sales_return_items = arr(db.salesReturns).flatMap(r=>arr(r.items).map(i=>({id:i.id,pharmacy_id:pid,sales_return_id:r.id,product_id:isUuid(i.productId)?i.productId:null,qty:n(i.qty),base_qty:i.baseQty==null?null:n(i.baseQty),display_qty:i.displayQty==null?null:n(i.displayQty),unit_code:i.unitCode||null,unit_label:i.unitLabel||null,price:n(i.price),reason:i.reason||null})));
-    rows.accounts_payable = arr(db.payables).map(p=>({id:p.id,pharmacy_id:pid,supplier_id:isUuid(p.supplierId)?p.supplierId:null,purchase_order_id:isUuid(p.poId)?p.poId:null,amount:n(p.amount),adjusted_amount:p.adjustedAmount==null?null:n(p.adjustedAmount),paid_amount:n(p.paidAmount),due_date:p.dueDate||null,status:p.status||'Belum Lunas'}));
-    rows.accounts_payable_payments = arr(db.payables).flatMap(p=>arr(p.payments).map(x=>({id:x.id,pharmacy_id:pid,payable_id:p.id,paid_at:ts(x.date),amount:n(x.amount),method:x.method||'Transfer Bank'})));
-    rows.accounts_receivable = arr(db.receivables).map(r=>({id:r.id,pharmacy_id:pid,customer_id:isUuid(r.customerId)?r.customerId:null,transaction_id:isUuid(r.transactionId)?r.transactionId:null,amount:n(r.amount),paid_amount:n(r.paidAmount),due_date:r.dueDate||null,status:r.status||'Belum Lunas'}));
-    rows.accounts_receivable_payments = arr(db.receivables).flatMap(r=>arr(r.payments).map(x=>({id:x.id,pharmacy_id:pid,receivable_id:r.id,paid_at:ts(x.date),amount:n(x.amount),method:x.method||'Transfer Bank'})));
-    rows.chart_of_accounts = arr(db.chartOfAccounts).map(a=>({id:a.id,pharmacy_id:pid,code:a.code,name:a.name,class:a.class||'Lainnya'}));
-    rows.journal_entries = arr(db.journal).map(j=>({id:j.id,pharmacy_id:pid,source_type:j.sourceType||null,source_id:j.sourceId||null,note:j.note||null,posted_at:ts(j.date)}));
-    rows.journal_entry_lines = arr(db.journal).flatMap(j=>arr(j.entries).map(e=>({id:e.id,pharmacy_id:pid,journal_entry_id:j.id,account_code:e.account,debit:n(e.debit),credit:n(e.credit)})));
-    rows.price_lists = arr(db.priceLists).map(pl=>({id:pl.id,pharmacy_id:pid,name:pl.name,type:pl.type,status:pl.status||'Aktif',start_date:pl.dateRange&&pl.dateRange.start?pl.dateRange.start:null,end_date:pl.dateRange&&pl.dateRange.end?pl.dateRange.end:null}));
-    rows.price_list_customers = arr(db.priceLists).flatMap(pl=>arr(pl.customerIds).filter(isUuid).map(customerId=>({id:uuid(),pharmacy_id:pid,price_list_id:pl.id,customer_id:customerId})));
-    rows.price_list_rules = arr(db.priceLists).flatMap(pl=>arr(pl.rules).map(r=>({id:r.id,pharmacy_id:pid,price_list_id:pl.id,product_id:isUuid(r.productId)?r.productId:null,discount_percent:r.discountPercent==null?null:n(r.discountPercent),fixed_price:r.fixedPrice==null?null:n(r.fixedPrice)})).filter(r=>r.product_id));
-    return rows;
   }
 
   function scheduleSave(db){
@@ -282,5 +212,5 @@
     }
   }
 
-  window.ApotekKilatSupabaseData = {init, scheduleSave, flush, getMode:()=>state.mode, getPharmacyId:()=>state.pharmacyId, getSyncStatus:()=>state.syncStatus};
+  window.ApotekKilatSupabaseData = {init, scheduleSave, flush, getMode:()=>state.mode, getPharmacyId:()=>state.pharmacyId, getMembership:()=>state.membership, getSyncStatus:()=>state.syncStatus};
 })();

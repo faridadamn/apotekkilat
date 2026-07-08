@@ -38,6 +38,10 @@
 <script src="supabase-config.js"></script>
 <script src="supabase-data.js"></script>
 <script src="app.js"></script>
+<script src="tenant-onboarding.js"></script>
+<script src="p2-checkout-rpc.js"></script>
+<script src="p2-receive-po-rpc.js"></script>
+<script src="p2-return-rpc.js"></script>
 <script src="vendor.js"></script>
 <script src="vendor-po.js"></script>
 <script src="vendor-products.js"></script>
@@ -48,6 +52,7 @@
 <script src="medicine-ledger.js"></script>
 <script src="sales-transactions.js"></script>
 <script src="multi-uom.js"></script>
+<script src="p6-b1-uom-cloud-bridge.js"></script>
 <script src="uom-ledger-view.js"></script>
 <script src="multi-uom-ui.js"></script>
 <script src="stock-opname.js"></script>
@@ -68,6 +73,11 @@
 <script src="workflow-rpc-hooks.js"></script>
 <script src="optimistic-concurrency.js"></script>
 <script src="sync-state.js"></script>
+<script src="p6-b1-cloud-sync-fix.js"></script>
+<script src="p6-b2-incremental-sync-fallback.js"></script>
+<script src="p6-b3-checkout-compliance-fix.js"></script>
+<script src="p6-n1-soft-delete-sync.js"></script>
+<script src="p6-po-status-sync.js"></script>
 <script>document.querySelector('#todayDate').textContent=new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'});document.querySelector('#sidebarToggle').onclick=()=>document.querySelector('.app').classList.toggle('sidebar-collapsed');</script>
 </body>
 </html>
