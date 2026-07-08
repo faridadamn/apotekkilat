@@ -1,0 +1,117 @@
+/* Mobile UX Phase 4 — modal and form polish.
+   Mobile-only. No business logic changes. */
+
+@media(max-width:720px){
+  .modal-wrap{
+    padding:0!important;
+    align-items:flex-end!important;
+    justify-content:center!important;
+  }
+  .modal{
+    width:100%!important;
+    max-width:none!important;
+    max-height:94vh!important;
+    border-radius:22px 22px 0 0!important;
+    padding:18px 16px calc(16px + env(safe-area-inset-bottom,0px))!important;
+    overflow:auto!important;
+    overscroll-behavior:contain;
+  }
+  .modal:before{
+    content:'';
+    display:block;
+    width:42px;
+    height:4px;
+    border-radius:999px;
+    background:#d5e1dc;
+    margin:0 auto 14px;
+  }
+  .modal h3{
+    position:sticky;
+    top:-18px;
+    z-index:2;
+    margin:0 0 14px!important;
+    padding:4px 0 12px;
+    background:#fff;
+    font-size:18px!important;
+    line-height:1.25;
+    border-bottom:1px solid #eef3f1;
+  }
+  .modal .form,
+  .form{
+    display:grid;
+    grid-template-columns:1fr!important;
+    gap:12px!important;
+  }
+  .form label{
+    font-size:12px!important;
+    line-height:1.35;
+    color:#536476!important;
+  }
+  .form input,
+  .form select,
+  .form textarea{
+    min-height:46px!important;
+    padding:11px 12px!important;
+    border-radius:12px!important;
+    font-size:15px!important;
+    background:#fff!important;
+  }
+  .form textarea{
+    min-height:96px!important;
+    resize:vertical;
+    line-height:1.45;
+  }
+  .form input:focus,
+  .form select:focus,
+  .form textarea:focus{
+    outline:0;
+    border-color:#8fd9b3!important;
+    box-shadow:0 0 0 3px rgba(15,169,104,.12);
+  }
+  .field-err{
+    font-size:11px!important;
+    line-height:1.35;
+  }
+  .actions{
+    position:sticky!important;
+    bottom:calc(-16px - env(safe-area-inset-bottom,0px));
+    z-index:3;
+    display:grid!important;
+    grid-template-columns:1fr 1fr;
+    gap:9px!important;
+    margin:16px -16px 0!important;
+    padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px))!important;
+    background:linear-gradient(180deg,rgba(255,255,255,.92),#fff 30%);
+    border-top:1px solid #eef3f1;
+  }
+  .actions button{
+    width:100%!important;
+    min-height:46px!important;
+    border-radius:12px!important;
+    padding:11px 12px!important;
+  }
+  .actions .primary,
+  #modalSave{
+    box-shadow:0 8px 20px rgba(11,169,102,.22);
+  }
+  .modal .tools{
+    grid-template-columns:1fr!important;
+  }
+  .modal .tools input,
+  .modal .tools select,
+  .modal .tools button{
+    width:100%!important;
+  }
+  .modal table{
+    display:block;
+    overflow-x:auto;
+    white-space:nowrap;
+    -webkit-overflow-scrolling:touch;
+  }
+}
+
+@media(max-width:420px){
+  .modal{padding-inline:14px!important}
+  .actions{margin-inline:-14px!important;padding-inline:14px!important}
+  .form input,.form select,.form textarea{font-size:14px!important}
+}
