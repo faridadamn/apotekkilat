@@ -1,0 +1,65 @@
+/* Mobile UX Phase 3 — table-to-card presentation.
+   Mobile-only. Desktop tables remain unchanged. */
+
+@media(max-width:720px){
+  .card > table,
+  .card table.mobile-card-table{
+    display:block;
+    overflow:visible;
+    white-space:normal;
+    border-collapse:separate;
+    border-spacing:0;
+  }
+
+  table.mobile-card-table thead{display:none}
+  table.mobile-card-table tbody{display:grid;gap:10px}
+  table.mobile-card-table tr{
+    display:block;
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:10px 12px;
+    box-shadow:0 4px 14px rgba(31,77,64,.04);
+  }
+  table.mobile-card-table tr.clickable:hover{background:#fff}
+  table.mobile-card-table td{
+    display:grid;
+    grid-template-columns:minmax(94px,38%) 1fr;
+    gap:10px;
+    align-items:start;
+    padding:8px 0;
+    border-bottom:1px solid #eff3f4;
+    white-space:normal;
+    word-break:break-word;
+  }
+  table.mobile-card-table td:last-child{border-bottom:0}
+  table.mobile-card-table td:before{
+    content:attr(data-label);
+    color:var(--m);
+    font-size:11px;
+    font-weight:900;
+    text-transform:none;
+  }
+  table.mobile-card-table td[data-label=''],
+  table.mobile-card-table td.no-label{grid-template-columns:1fr}
+  table.mobile-card-table td[data-label='']:before,
+  table.mobile-card-table td.no-label:before{display:none}
+
+  table.mobile-card-table td:first-child{
+    grid-template-columns:1fr;
+    font-size:14px;
+    font-weight:800;
+    color:var(--ink);
+    padding-top:2px;
+  }
+  table.mobile-card-table td:first-child:before{display:none}
+  table.mobile-card-table .tabs{justify-content:flex-start}
+  table.mobile-card-table .tabs button{flex:1 1 auto;min-width:96px}
+  table.mobile-card-table .empty{
+    display:block;
+    text-align:center;
+    padding:28px 14px;
+    border:1px dashed var(--line);
+    border-radius:14px;
+  }
+}
