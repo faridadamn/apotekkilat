@@ -1,18 +1,73 @@
-/* Phase P0 — Owner-managed pharmacy users.
-   Database RLS is the source of truth. This file only exposes the safe UI flow. */
+/* Phase P0 — Owner-managed pharmacy users and official role matrix.
+   Database RLS is the source of truth. This file exposes the safe UI flow and basic access guards. */
 (function(){
-  const ROLE_OPTIONS = ['Owner','Apoteker','Admin','Kasir'];
+  const ROLE_OPTIONS = ['Owner','Supervisor','Apoteker','Admin Stok','Purchasing','Kasir','Viewer'];
   const STATUS_OPTIONS = ['Aktif','Nonaktif'];
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i;
+  const ROLE_MATRIX = {
+    dashboard:{label:'Dashboard', read:ROLE_OPTIONS, write:ROLE_OPTIONS},
+    inventori:{label:'Master produk', read:ROLE_OPTIONS, write:['Owner','Supervisor','Apoteker','Admin Stok']},
+    obat:{label:'Detail produk', read:ROLE_OPTIONS, write:['Owner','Supervisor','Apoteker','Admin Stok']},
+    kasir:{label:'Kasir', read:ROLE_OPTIONS, write:['Owner','Supervisor','Apoteker','Kasir']},
+    resep:{label:'Verifikasi resep', read:ROLE_OPTIONS, write:['Owner','Supervisor','Apoteker']},
+    pembelian:{label:'Purchase order', read:ROLE_OPTIONS, write:['Owner','Supervisor','Purchasing']},
+    pelanggan:{label:'Pelanggan', read:ROLE_OPTIONS, write:['Owner','Supervisor','Apoteker','Kasir']},
+    laporan:{label:'Jurnal / laporan keuangan', read:ROLE_OPTIONS, write:['Owner','Supervisor']},
+    cabang:{label:'User / cabang', read:['Owner'], write:['Owner']},
+    chat:{label:'Chat', read:['Owner','Supervisor','Apoteker','Kasir'], write:['Owner','Supervisor','Apoteker','Kasir']},
+    pengaturan:{label:'Pengaturan', read:['Owner','Supervisor'], write:['Owner']}
+  };
+  const ACTION_PERMISSIONS = {
+    'add-product':['Owner','Supervisor','Apoteker','Admin Stok'],
+    'edit-medicine':['Owner','Supervisor','Apoteker','Admin Stok'],
+    'delete-product':['Owner','Supervisor'],
+    'add-batch':['Owner','Supervisor','Admin Stok'],
+    'checkout':['Owner','Supervisor','Apoteker','Kasir'],
+    'new-po':['Owner','Supervisor','Purchasing'],
+    'add-prescription':['Owner','Supervisor','Apoteker'],
+    'verify-rx':['Owner','Supervisor','Apoteker'],
+    'prepare-rx':['Owner','Supervisor','Apoteker'],
+    'complete-rx':['Owner','Supervisor','Apoteker'],
+    'add-branch':['Owner'],
+    'add-user':['Owner'],
+    'edit-user':['Owner'],
+    'deactivate-user':['Owner'],
+    'save-settings':['Owner'],
+    'reset-data':['Owner'],
+    'export':['Owner','Supervisor']
+  };
 
   function currentMembership(){
     const uid = authSession && authSession.user ? authSession.user.id : null;
     return (DB.users || []).find(u => u.userId === uid && u.status === 'Aktif') || null;
   }
 
-  function canManageUsers(){
+  function currentRole(){
     const me = currentMembership();
-    return !!me && me.role === 'Owner';
+    return me ? me.role : 'Viewer';
+  }
+
+  function canManageUsers(){
+    return currentRole() === 'Owner';
+  }
+
+  function hasRoleAccess(allowed){
+    return Array.isArray(allowed) && allowed.includes(currentRole());
+  }
+
+  function canReadPage(page){
+    const rule = ROLE_MATRIX[page];
+    return !rule || hasRoleAccess(rule.read);
+  }
+
+  function canWritePage(page){
+    const rule = ROLE_MATRIX[page];
+    return !!rule && hasRoleAccess(rule.write);
+  }
+
+  function canRunAction(actionName){
+    const allowed = ACTION_PERMISSIONS[actionName];
+    return !allowed || hasRoleAccess(allowed);
   }
 
   function isCloudMode(){
@@ -37,6 +92,29 @@
     return (DB.branches || []).map(b=>`<option value="${b.id}" ${value===b.id?'selected':''}>${esc(b.name)}</option>`).join('');
   }
 
+  function accessDeniedHtml(page){
+    const rule = ROLE_MATRIX[page] || {label:page};
+    return `<section class="page active"><div class="card"><h2>Akses dibatasi</h2><p class="muted">Role Anda saat ini: <b>${esc(currentRole())}</b>.</p><p>Modul <b>${esc(rule.label)}</b> tidak tersedia untuk role ini.</p></div></section>`;
+  }
+
+  function permissionMatrixHtml(){
+    const rows = [
+      ['Dashboard','✓','✓','✓','✓','✓','✓','✓'],
+      ['Master produk','✓','✓','✓','✓','-','-','Read'],
+      ['Harga jual/modal','✓','✓','-','✓','-','-','Read'],
+      ['Kasir','✓','✓','✓','-','-','✓','Read'],
+      ['Verifikasi resep','✓','✓','✓','-','-','-','Read'],
+      ['Purchase order','✓','✓','-','-','✓','-','Read'],
+      ['Receipt PO','✓','✓','-','✓','✓','-','Read'],
+      ['Retur draft','✓','✓','-','✓','✓','✓','Read'],
+      ['Retur approval','✓','✓','-','-','-','-','Read'],
+      ['Stock opname','✓','✓','-','✓','-','-','Read'],
+      ['Jurnal / laporan keuangan','✓','✓','-','-','-','-','Read'],
+      ['User / cabang','✓','-','-','-','-','-','-']
+    ];
+    return `<div class="permission"><div class="ph">Modul</div>${ROLE_OPTIONS.map(r=>`<div class="ph center">${esc(r)}</div>`).join('')}${rows.flat().map((x,i)=>`<div class="${i%8?'center':''}">${esc(x)}</div>`).join('')}</div>`;
+  }
+
   function userRows(){
     const users = DB.users || [];
     const meId = authSession && authSession.user ? authSession.user.id : null;
@@ -52,23 +130,61 @@
     }).join('');
   }
 
-  const originalBranches = branches;
+  nav = function(){
+    document.querySelector('#nav').innerHTML = NAV.filter(n=>canReadPage(n[0])).map(n=>{
+      const badge = n[0]==='chat' ? DB.conversations.filter(c=>c.messages.length && c.messages[c.messages.length-1].from==='in').length : 0;
+      return `<button data-page="${n[0]}" class="${S.page===n[0]?'active':''}"><span class="ico">${n[1]}</span><span>${n[2]}</span>${badge?`<span class="pill">${badge}</span>`:''}</button>`;
+    }).join('');
+  };
+
+  const originalRender = render;
+  render = function(){
+    if(!canReadPage(S.page)){
+      const firstAllowed = NAV.find(n=>canReadPage(n[0]));
+      S.page = firstAllowed ? firstAllowed[0] : 'dashboard';
+    }
+    originalRender();
+  };
+
   branches = function(){
+    if(!canReadPage('cabang')) return accessDeniedHtml('cabang');
     const owner = canManageUsers();
     const cloud = isCloudMode();
     const lockedNote = cloud
       ? 'Membership dikunci oleh Supabase RLS. Hanya Owner aktif yang bisa menambah, mengubah role, atau menonaktifkan user.'
       : 'Mode demo lokal. Pengaturan user tidak disimpan ke Supabase.';
-    return `<section class="page active"><div class="head"><div><h2>Cabang & Hak Akses</h2><p>Kelola cabang apotek dan pengguna.</p></div><button class="primary" data-action="add-branch">＋ Tambah Cabang</button></div>
-    <div class="grid4">${DB.branches.map(b=>{ const st=branchStats(b); return `<div class="card"><div class="title"><span>${esc(b.name)}</span>${b.isMain?status('Utama','ok'):''}</div><p class="muted">${esc(b.address)}</p><h3>${fmt(st.revenue)}</h3><p class="muted">${st.count} transaksi</p><button class="danger-btn" data-delete-branch="${b.id}">Hapus</button></div>`; }).join('')}</div>
+    return `<section class="page active"><div class="head"><div><h2>Cabang & Hak Akses</h2><p>Kelola cabang apotek dan pengguna.</p></div>${owner?'<button class="primary" data-action="add-branch">＋ Tambah Cabang</button>':''}</div>
+    <div class="grid4">${DB.branches.map(b=>{ const st=branchStats(b); return `<div class="card"><div class="title"><span>${esc(b.name)}</span>${b.isMain?status('Utama','ok'):''}</div><p class="muted">${esc(b.address)}</p><h3>${fmt(st.revenue)}</h3><p class="muted">${st.count} transaksi</p>${owner?`<button class="danger-btn" data-delete-branch="${b.id}">Hapus</button>`:''}</div>`; }).join('')}</div>
     <div style="height:16px"></div>
     <div class="two">
       <div class="card"><div class="title"><span>Daftar Pengguna</span>${owner?'<button class="primary" data-action="add-user">＋ Tambah Pengguna</button>':'<span class="muted">Owner saja</span>'}</div>
       <p class="muted" style="font-size:12px;margin-top:-4px">${lockedNote}</p>
       <table><thead><tr><th>Pengguna</th><th>Cabang</th><th>Peran</th><th>Status</th><th>Aksi</th></tr></thead><tbody>${userRows()}</tbody></table></div>
-      <div class="card"><div class="title"><span>Hak Akses per Peran</span></div>
-      <div class="permission"><div class="ph">Modul</div><div class="ph center">Owner</div><div class="ph center">Apoteker</div><div class="ph center">Admin</div><div class="ph center">Kasir</div>${[['Dashboard','✓','✓','✓','✓'],['Inventori','✓','✓','✓','−'],['Resep','✓','✓','−','×'],['Laporan','✓','✓','×','×'],['Pengaturan','✓','−','×','×'],['User & Role','✓','×','×','×']].flat().map((x,i)=>`<div class="${i%5?'center':''}">${x}</div>`).join('')}</div>
-      <p class="muted" style="margin-top:10px;font-size:11px">Catatan: penegakan membership sekarang dilakukan oleh Supabase RLS. Delete user diganti status Nonaktif.</p></div>
+      <div class="card"><div class="title"><span>Hak Akses per Peran</span></div>${permissionMatrixHtml()}<p class="muted" style="margin-top:10px;font-size:11px">Catatan: role resmi disimpan sebagai constraint database. UI guard ini tetap harus dilanjutkan dengan RLS/RPC per modul pada phase berikutnya.</p></div>
+    </div></section>`;
+  };
+
+  settings = function(){
+    if(!canReadPage('pengaturan')) return accessDeniedHtml('pengaturan');
+    const s = DB.settings;
+    const canWrite = canWritePage('pengaturan');
+    return `<section class="page active"><div class="head"><div><h2>Pengaturan</h2><p>Konfigurasi dasar ApotekKilat.</p></div></div>
+    <div class="two">
+      <div class="card"><div class="title"><span>Profil Apotek</span></div>
+      <div class="form">
+        <label>Nama Apotek<input id="setName" value="${esc(s.pharmacyName)}" ${canWrite?'':'disabled'}/></label>
+        <label>Alamat<input id="setAddress" value="${esc(s.address)}" ${canWrite?'':'disabled'}/></label>
+        <label>No. WhatsApp<input id="setWa" value="${esc(s.whatsapp)}" ${canWrite?'':'disabled'}/></label>
+        ${canWrite?'<button class="primary" data-action="save-settings">Simpan Perubahan</button>':'<p class="muted">Hanya Owner yang dapat mengubah pengaturan.</p>'}
+      </div></div>
+      <div class="card"><div class="title"><span>Notifikasi & Data</span></div>
+      <label><input type="checkbox" id="notifLow" ${s.notifLowStock?'checked':''} ${canWrite?'':'disabled'}/> Stok menipis</label><br>
+      <label><input type="checkbox" id="notifExp" ${s.notifExpiry?'checked':''} ${canWrite?'':'disabled'}/> Obat mendekati expired</label><br>
+      <label><input type="checkbox" id="notifDaily" ${s.notifDailySummary?'checked':''} ${canWrite?'':'disabled'}/> Ringkasan penjualan harian</label>
+      <hr style="border:0;border-top:1px solid var(--line);margin:18px 0">
+      <p class="muted">Semua data (produk, transaksi, pelanggan, dll) tersimpan di browser ini (localStorage). Menghapus cache browser akan menghapus data.</p>
+      ${canWrite?'<button class="danger-btn" data-action="reset-data">Reset ke Data Contoh</button>':''}
+      </div>
     </div></section>`;
   };
 
@@ -157,6 +273,7 @@
 
   const originalAction = action;
   action = function(a, el){
+    if(!canRunAction(a)) return toast(`Role ${currentRole()} tidak memiliki akses untuk aksi ini.`, 'err');
     if(a === 'add-user') return openUserForm();
     if(a === 'edit-user') return openUserForm((DB.users || []).find(u=>u.id===el.dataset.userId));
     if(a === 'deactivate-user'){
@@ -167,4 +284,13 @@
     }
     return originalAction(a, el);
   };
+
+  document.addEventListener('click', (e)=>{
+    const btn = e.target.closest('[data-page]');
+    if(btn && !canReadPage(btn.dataset.page)){
+      e.preventDefault();
+      e.stopPropagation();
+      toast(`Role ${currentRole()} tidak memiliki akses ke modul ini.`, 'err');
+    }
+  }, true);
 })();
