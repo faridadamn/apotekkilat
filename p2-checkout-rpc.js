@@ -1,4 +1,5 @@
-/* Phase P2.1 — Route cloud checkout through atomic checkout_transaction() RPC. */
+/* Phase P2.1 — Route cloud checkout through atomic checkout_transaction() RPC.
+   P6 B3 note: if the final checkout compliance pipeline is loaded, delegate to it. */
 (function(){
   const uuid = () => crypto.randomUUID();
   const n = v => Number(v) || 0;
@@ -27,10 +28,10 @@
       customer_id: S.cartCustomerId || null,
       payment_method: S.paymentMethod || 'Tunai',
       idempotency_key: uuid(),
-      prescription_id: S.selectedPrescriptionId || null,
+      prescription_id: S.selectedPrescriptionId || S.cartPrescriptionId || null,
       items: S.cart.map(c=>{
         const p = DB.products.find(x=>x.id===c.id);
-        return {product_id:c.id, unit_code:p && (p.saleUnit || p.baseUnit || null), qty:n(c.q)};
+        return {product_id:c.id, unit_code:c.unitCode || (p && (p.saleUnit || p.baseUnit || null)), qty:n(c.q)};
       })
     };
 
@@ -60,13 +61,14 @@
       customerId: r.customer_id || S.cartCustomerId || null,
       branchId: r.branch_id || branchId,
       subtotal: n(r.subtotal),
+      discountTotal: n(r.discount_total),
       tax: n(r.tax),
       total: n(r.total),
       payment: r.payment_method || payload.payment_method,
       status: 'Selesai',
       time: Date.now(),
       prescriptionId: payload.prescription_id,
-      priceListIds: [],
+      priceListIds: r.price_list_ids || [],
       items
     });
 
@@ -82,6 +84,8 @@
     localStorage.setItem(DB_KEY, JSON.stringify(DB));
     S.cart = [];
     S.cartCustomerId = null;
+    S.cartPrescriptionId = null;
+    S.selectedPrescriptionId = null;
     modal('Transaksi Berhasil', `<div class="receipt">${esc(receiptText(r.receipt || r))}</div>`, null, {saveLabel:'Tutup'});
     render();
     toast('Transaksi cloud berhasil via RPC');
@@ -95,7 +99,11 @@
     e.stopImmediatePropagation();
     try{
       btn.disabled = true;
-      await checkoutCloud();
+      if(window.ApotekKilatP6B3CheckoutCompliance && typeof window.ApotekKilatP6B3CheckoutCompliance.checkout === 'function'){
+        await window.ApotekKilatP6B3CheckoutCompliance.checkout();
+      } else {
+        await checkoutCloud();
+      }
     }catch(err){
       console.error(err);
       toast(err.message || 'Checkout cloud gagal','err');
