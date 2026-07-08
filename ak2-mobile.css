@@ -1,4 +1,17 @@
 /* Iterasi 2 — Mobile release readiness layer. Does not modify desktop style.css. */
+
+/* The base style.css collapses sidebar labels below 1100px. For this app, labels must remain visible on tablet / narrow desktop widths; only explicit collapse or mobile drawer should hide them. */
+@media(min-width:721px) and (max-width:1100px){
+  .app{grid-template-columns:238px 1fr!important;}
+  .sidebar{width:auto!important;padding:22px 15px!important;}
+  .brand{justify-content:flex-start!important;padding:0 10px 25px!important;}
+  .brand h1,.brand p{display:block!important;}
+  .nav span:not(.ico):not(.pill){display:inline!important;}
+  .nav button{justify-content:flex-start!important;padding:11px 12px!important;}
+  .tip{display:block!important;}
+  .product-grid{grid-template-columns:repeat(3,1fr);}
+}
+
 @media(max-width:720px){
   body{overflow-x:hidden;}
   .app{width:100%;min-height:100vh;}
