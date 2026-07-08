@@ -42,6 +42,11 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .search{height:40px;min-width:260px;width:360px;border:1px solid var(--line);border-radius:10px;padding:0 13px}
 .spacer{flex:1}
 .date{border:1px solid var(--line);border-radius:10px;padding:11px 12px;color:#617080;font-size:12px}
+.sync-indicator{border:1px solid var(--line);border-radius:999px;padding:9px 11px;font-size:11px;font-weight:900;white-space:nowrap;background:#fff;color:#617080}
+.sync-indicator.synced{background:#e4f9ee;color:#078651;border-color:#bdebd3}
+.sync-indicator.saving{background:#fff7e6;color:#b77900;border-color:#f4d18f}
+.sync-indicator.error{background:#ffeded;color:#dc414a;border-color:#f2b4b8}
+.sync-indicator.offline{background:#f6f9f8;color:#617080;border-color:#d8e3e5}
 .bell{font-size:20px;position:relative;cursor:pointer}
 .bell.has-alert:after{content:attr(data-count);position:absolute;background:var(--red);color:#fff;border-radius:99px;font-size:9px;padding:1px 4px;right:-8px;top:-6px}
 .profile{display:flex;align-items:center;gap:8px}
@@ -143,8 +148,7 @@ tr.clickable:hover{background:#f8fffb}
 .permission .ph{background:#f7faf9;font-weight:900}
 .center{text-align:center}
 .empty{text-align:center;padding:38px;color:var(--m)}
-.receipt{font-family:'Courier New',monospace;font-size:12px;white-space:pre;background:#fbfffc;border:1px dashed var(--line);border-radius:10px;padding:14px}
-/* Sidebar collapse toggle */
+.receipt{background:#f8faf9;border:1px dashed #b9c7c1;border-radius:12px;padding:14px;font-family:ui-monospace,monospace;font-size:12px;white-space:pre-wrap;color:#1e2e29}
 .app.sidebar-collapsed{grid-template-columns:70px 1fr!important}
 .app.sidebar-collapsed .sidebar{width:70px!important;padding:22px 10px!important}
 .app.sidebar-collapsed .brand{justify-content:center;padding:0 0 25px!important}
@@ -167,6 +171,7 @@ tr.clickable:hover{background:#f8fffb}
   .sidebar{display:none}
   .top{padding:10px 14px}
   .date,.profile{display:none}
+  .sync-indicator{display:none}
   .search{min-width:0;width:100%}
   .page{padding:18px}
   .grid5,.grid4{grid-template-columns:repeat(2,1fr)}
