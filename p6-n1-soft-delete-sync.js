@@ -16,7 +16,7 @@
     {key:'priceLists', table:'price_lists'},
     {key:'conversations', table:'conversations'}
   ];
-  const isUuid = id => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(id||''));
+  const isUuid = id => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}[0-9a-f]-[0-9a-f]{12}$/i.test(String(id||''));
   const cloudReady = () => !!(window.ApotekKilatSupabaseData && window.ApotekKilatSupabaseData.getMode && window.ApotekKilatSupabaseData.getMode() === 'cloud' && typeof supabaseClient !== 'undefined' && supabaseClient);
   const pharmacyId = () => window.ApotekKilatSupabaseData && window.ApotekKilatSupabaseData.getPharmacyId ? window.ApotekKilatSupabaseData.getPharmacyId() : null;
   const userId = () => authSession && authSession.user ? authSession.user.id : null;
