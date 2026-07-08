@@ -78,7 +78,7 @@
       <label>WhatsApp<input id="tenantWhatsapp" placeholder="08xxxx" /></label>
       <label class="check"><input id="tenantSeedCoa" type="checkbox" checked /> Seed chart of accounts awal</label>
       <p class="muted">Flow ini memakai session user biasa dan RPC tervalidasi. Tidak ada service role key di browser.</p>
-    </div>`, submitTenant, {saveLabel:'Buat Tenant'});
+    </div>`, ()=>{ submitTenant(); return false; }, {saveLabel:'Buat Tenant'});
   }
 
   window.addEventListener('apotekkilat:tenant-required', openTenantOnboarding);
