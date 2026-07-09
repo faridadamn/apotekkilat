@@ -25,9 +25,11 @@
   }
   function syncInputs(){const so=getSO();if(!so||so.status!=='Draft')return;document.querySelectorAll('[data-so-row]').forEach(row=>{const i=Number(row.dataset.soRow),it=so.items[i],physical=Math.max(0,Number(row.querySelector('.so-physical').value)||0);it.physicalQty=physical;it.diff=physical-Number(it.systemQty||0);const reason=row.querySelector('.so-reason');if(reason)it.reason=reason.value;});}
   function updateRow(row){const so=getSO(),i=Number(row.dataset.soRow),it=so.items[i],p=DB.products.find(x=>x.id===it.productId),unit=productUnit(p);it.physicalQty=Math.max(0,Number(row.querySelector('.so-physical').value)||0);it.diff=it.physicalQty-Number(it.systemQty||0);const diff=row.querySelector('.so-diff'),reason=row.querySelector('.so-reason');diff.textContent=(it.diff>0?'+':'')+it.diff+' '+unit;diff.style.color=it.diff===0?'var(--muted)':it.diff>0?'var(--g)':'var(--red)';reason.disabled=it.diff===0;if(it.diff===0){it.reason='';reason.value='';}saveDB();}
+  function batchTime(b){const t=Date.parse(b&&b.expired?b.expired:'');return Number.isFinite(t)?t:Number.POSITIVE_INFINITY;}
   function adjustBatches(p,diff,code){
     p.batches=p.batches||[];
     if(diff>0){p.batches.push({batchNo:'SO-'+code,received:new Date().toISOString().slice(0,10),expired:p.expired,qty:diff,location:'Stock Adjustment'});return;}
+    p.batches.sort((a,b)=>batchTime(a)-batchTime(b));
     let remaining=Math.abs(diff);for(const b of p.batches){if(remaining<=0)break;const take=Math.min(Number(b.qty)||0,remaining);b.qty=(Number(b.qty)||0)-take;remaining-=take;}p.batches=p.batches.filter(b=>Number(b.qty)>0);
   }
   function finish(id){
