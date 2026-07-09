@@ -27,6 +27,13 @@
     }
     toast('Fitur backup belum siap.', 'err');
   }
+  function importBackup(){
+    if(window.ApotekKilatTenantOnboarding && window.ApotekKilatTenantOnboarding.importLocalBackup){
+      window.ApotekKilatTenantOnboarding.importLocalBackup();
+      return;
+    }
+    toast('Fitur import belum siap.', 'err');
+  }
   function openUpgrade(){
     if(isLocalFreeSession()){
       openWhatsApp('cloud');
@@ -46,6 +53,12 @@
       const el = document.querySelector(sel);
       if(el) el.remove();
     });
+  }
+  function backupImportButtons(){
+    return `<div style="display:flex;gap:8px;margin-top:8px">
+      <button class="outline" data-action="export-local-backup" style="flex:1">Backup</button>
+      <button class="outline" data-action="import-local-backup" style="flex:1">Import</button>
+    </div>`;
   }
   function injectSettingsEntry(){
     if(S.page !== 'pengaturan') return;
@@ -75,15 +88,14 @@
         <p><b>Akun ini sudah login, tetapi belum punya tenant apotek.</b></p>
         <p class="muted">Aktivasi cloud tidak self-service. Data lokal tidak otomatis hilang. Hubungi WhatsApp admin untuk pembayaran/verifikasi membership dan migrasi data lokal.</p>
         <button class="primary" data-action="activate-cloud">💬 Aktivasi</button>
-        <button class="outline" data-action="export-local-backup" style="margin-left:8px">Download Backup Data Lokal</button>
+        ${backupImportButtons()}
       </div>`;
     }else if(local){
       html = `<div id="ak2TenantActivationCard" class="card" style="margin-bottom:16px">
         <div class="title"><span>Cloud Tenant</span>${status('Verifikasi Manual','warn')}</div>
         <p class="muted">Mode lokal tetap gratis. Untuk aktivasi cloud, hubungi admin via WhatsApp agar pembayaran, membership, dan migrasi data diverifikasi manual.</p>
         <button class="primary" data-action="activate-cloud">💬 Aktivasi</button>
-        <button class="outline" data-action="export-local-backup" style="margin-left:8px">Download Backup Data Lokal</button>
-        <button class="outline" data-action="cloud-login" style="margin-left:8px">Masuk Cloud</button>
+        ${backupImportButtons()}
       </div>`;
     }else if(hasTenant){
       html = `<div id="ak2TenantActivationCard" class="card" style="margin-bottom:16px;border-color:#b8ebcf;background:#f6fffa">
@@ -122,6 +134,12 @@
       exportBackup();
       return;
     }
+    const importer = e.target.closest('[data-action="import-local-backup"]');
+    if(importer){
+      e.preventDefault();
+      importBackup();
+      return;
+    }
     const login = e.target.closest('[data-action="cloud-login"]');
     if(login){
       e.preventDefault();
@@ -134,7 +152,7 @@
       openWhatsApp('improvement');
     }
   }, true);
-  window.ApotekKilatTenantUpgradeEntry = {isLocalFreeSession, canUpgrade, openUpgrade, openWhatsApp, exportBackup, removeHeaderButtons, injectSettingsEntry, updateVisibility};
+  window.ApotekKilatTenantUpgradeEntry = {isLocalFreeSession, canUpgrade, openUpgrade, openWhatsApp, exportBackup, importBackup, removeHeaderButtons, injectSettingsEntry, updateVisibility};
   window.addEventListener('apotekkilat:tenant-updated', updateVisibility);
   setInterval(updateVisibility, 1500);
   setTimeout(updateVisibility, 0);
