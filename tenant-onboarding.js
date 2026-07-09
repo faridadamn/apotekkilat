@@ -1,110 +1,78 @@
 /* Phase P1.5.5 — Upgrade-only tenant onboarding.
-   Users without pharmacy_users membership stay in client-base/local mode.
-   create_pharmacy_tenant() is only called from an explicit upgrade flow.
-   No service-role key is used in the browser. */
+   Public cloud activation is manual-gated until billing verification exists.
+   Browser users must contact support before tenant creation. */
 (function(){
-  let busy = false;
+  const SUPPORT_WA = '628159776654';
 
   function cloudHasTenant(){
     return !!(window.ApotekKilatSupabaseData && window.ApotekKilatSupabaseData.getPharmacyId && window.ApotekKilatSupabaseData.getPharmacyId());
-  }
-
-  function activeClient(){
-    return window.supabaseClient || supabaseClient;
   }
 
   function canUpgradeToCloud(){
     return !!(window.supabaseClient || supabaseClient) && !!authSession && authSession.user && !cloudHasTenant() && typeof modal === 'function';
   }
 
+  function waUrl(kind){
+    const email = authSession && authSession.user ? authSession.user.email : '';
+    const name = DB && DB.settings ? DB.settings.pharmacyName : '';
+    const text = kind === 'improvement'
+      ? `Halo, saya ingin memberi bantuan/saran improvement untuk ApotekKilat.%0A%0AEmail: ${encodeURIComponent(email || '-')}`
+      : `Halo, saya ingin aktivasi Cloud ApotekKilat.%0A%0AMohon info langkah pembayaran dan verifikasi membership cloud.%0A%0AEmail akun: ${encodeURIComponent(email || '-')}%0ANama apotek: ${encodeURIComponent(name || '-')}`;
+    return `https://wa.me/${SUPPORT_WA}?text=${text}`;
+  }
+
+  function openWhatsApp(kind){
+    window.open(waUrl(kind), '_blank', 'noopener');
+  }
+
   function showLocalModeNotice(){
     if(cloudHasTenant()) return;
     const tip = document.querySelector('.tip p');
-    if(tip) tip.textContent = 'Mode lokal aktif. Data tersimpan di perangkat ini. Upgrade cloud hanya untuk member aktif.';
+    if(tip) tip.textContent = 'Mode lokal aktif. Data tersimpan di perangkat ini. Aktivasi cloud diverifikasi manual via WhatsApp.';
     const label = document.querySelector('#pharmacyLabel');
     if(label && (!DB || !DB.settings || label.textContent === 'Sistem Manajemen Apotek')) label.textContent = 'Client Base — Mode Lokal';
   }
 
-  async function submitTenant(){
-    if(busy) return false;
-    const pharmacyName = document.querySelector('#tenantPharmacyName').value.trim();
-    const ownerName = document.querySelector('#tenantOwnerName').value.trim();
-    const address = document.querySelector('#tenantAddress').value.trim();
-    const whatsapp = document.querySelector('#tenantWhatsapp').value.trim();
-    const branchName = document.querySelector('#tenantBranchName').value.trim();
-    const seedCoa = document.querySelector('#tenantSeedCoa').checked;
-
-    if(!canUpgradeToCloud()){
-      toast('Upgrade cloud hanya bisa dilakukan setelah login dan belum punya tenant aktif.', 'err');
-      return false;
-    }
-    if(!pharmacyName || pharmacyName.length < 3){
-      toast('Nama apotek minimal 3 karakter', 'err');
-      return false;
-    }
-    if(!ownerName){
-      toast('Nama owner wajib diisi', 'err');
-      return false;
-    }
-
-    busy = true;
-    const btn = document.querySelector('#modalSave');
-    if(btn){ btn.disabled = true; btn.textContent = 'Mengaktifkan cloud...'; }
-
-    try{
-      const {error} = await activeClient().rpc('create_pharmacy_tenant', {
-        p_payload: {
-          pharmacy_name: pharmacyName,
-          owner_name: ownerName,
-          address,
-          whatsapp,
-          branch_name: branchName || `${pharmacyName} Pusat`,
-          seed_chart_of_accounts: seedCoa
-        }
-      });
-
-      if(error){
-        console.error(error);
-        toast(error.message || 'Gagal mengaktifkan tenant cloud', 'err');
-        return false;
-      }
-
-      toast('Cloud tenant berhasil diaktifkan');
-      closeModal();
-      if(typeof showApp === 'function') await showApp();
-      if(typeof updateHeader === 'function') updateHeader();
-      if(typeof render === 'function') render();
-      window.dispatchEvent(new CustomEvent('apotekkilat:tenant-updated'));
-      return true;
-    }catch(error){
-      console.error(error);
-      toast(error.message || 'Gagal mengaktifkan tenant cloud', 'err');
-      return false;
-    }finally{
-      busy = false;
-      if(btn){ btn.disabled = false; btn.textContent = 'Aktifkan Cloud'; }
-    }
+  function submitTenant(){
+    toast('Aktivasi Cloud perlu verifikasi manual via WhatsApp.', 'err');
+    openWhatsApp('cloud');
+    return false;
   }
 
   function openTenantUpgrade(){
     if(!canUpgradeToCloud()){
-      toast('Mode cloud hanya untuk akun tanpa tenant aktif yang sudah login.', 'err');
+      toast('Aktivasi cloud hanya untuk akun login yang belum punya tenant aktif.', 'err');
       return;
     }
     const email = authSession && authSession.user ? authSession.user.email : '';
-    modal('Upgrade ke Cloud', `<div class="form">
-      <p class="muted">Mode lokal tetap gratis. Lanjutkan hanya jika membership cloud sudah aktif, misalnya paket Rp50.000/bulan.</p>
-      <label>Nama Apotek<input id="tenantPharmacyName" placeholder="Contoh: Apotek Sehat Kilat" /></label>
-      <label>Nama Owner<input id="tenantOwnerName" value="${esc((email || '').split('@')[0] || 'Owner')}" placeholder="Nama pemilik / penanggung jawab" /></label>
-      <label>Cabang Pertama<input id="tenantBranchName" placeholder="Kosongkan untuk otomatis: Nama Apotek Pusat" /></label>
-      <label>Alamat<input id="tenantAddress" placeholder="Alamat apotek" /></label>
-      <label>WhatsApp<input id="tenantWhatsapp" placeholder="08xxxx" /></label>
-      <label class="check"><input id="tenantSeedCoa" type="checkbox" checked /> Seed chart of accounts awal</label>
-      <p class="muted">Flow ini memakai session user biasa dan RPC tervalidasi. Tidak ada service role key di browser.</p>
-    </div>`, ()=>{ submitTenant(); return false; }, {saveLabel:'Aktifkan Cloud'});
+    modal('Aktivasi Cloud', `<div class="form">
+      <p><b>Aktivasi Cloud tidak dilakukan otomatis dari aplikasi.</b></p>
+      <p class="muted">Untuk sementara, membership cloud diverifikasi manual terlebih dahulu. Klik tombol di bawah untuk menghubungi WhatsApp admin, lalu admin akan bantu aktivasi setelah pembayaran/verifikasi selesai.</p>
+      <div class="card" style="background:#f6fffa;border-color:#b8ebcf;box-shadow:none">
+        <div class="title"><span>Paket Cloud</span>${status('Verifikasi Manual','warn')}</div>
+        <p class="muted">Estimasi paket awal: <b>Rp50.000/bulan</b>. Mode lokal tetap gratis dan bisa dipakai tanpa aktivasi cloud.</p>
+        <p class="muted">Email akun login: <b style="color:var(--ink)">${esc(email || '-')}</b></p>
+      </div>
+      <button type="button" class="primary" style="width:100%;margin-top:10px" data-action="contact-cloud-wa">Hubungi WhatsApp untuk Aktivasi Cloud</button>
+      <p class="muted">Catatan: tombol ini tidak menjalankan RPC <code>create_pharmacy_tenant</code>. Tenant cloud akan dibuat manual setelah membership tervalidasi.</p>
+    </div>`, ()=>{ openWhatsApp('cloud'); return false; }, {saveLabel:'Hubungi WhatsApp'});
   }
 
-  window.ApotekKilatTenantOnboarding = {openTenantUpgrade, canUpgradeToCloud, showLocalModeNotice};
+  document.addEventListener('click', function(e){
+    const cloud = e.target.closest('[data-action="contact-cloud-wa"]');
+    if(cloud){
+      e.preventDefault();
+      openWhatsApp('cloud');
+      return;
+    }
+    const improvement = e.target.closest('[data-action="contact-improvement-wa"]');
+    if(improvement){
+      e.preventDefault();
+      openWhatsApp('improvement');
+    }
+  }, true);
+
+  window.ApotekKilatTenantOnboarding = {openTenantUpgrade, canUpgradeToCloud, showLocalModeNotice, openWhatsApp, submitTenant};
   window.addEventListener('apotekkilat:local-mode', showLocalModeNotice);
   setInterval(showLocalModeNotice, 1200);
 })();
