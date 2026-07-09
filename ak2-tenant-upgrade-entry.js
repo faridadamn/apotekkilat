@@ -74,14 +74,14 @@
         <div class="title"><span>Aktivasi Cloud Tenant</span>${status('Verifikasi Manual','warn')}</div>
         <p><b>Akun ini sudah login, tetapi belum punya tenant apotek.</b></p>
         <p class="muted">Aktivasi cloud tidak self-service. Data lokal tidak otomatis hilang. Hubungi WhatsApp admin untuk pembayaran/verifikasi membership dan migrasi data lokal.</p>
-        <button class="primary" data-action="activate-cloud">Hubungi WhatsApp untuk Aktivasi + Migrasi</button>
+        <button class="primary" data-action="activate-cloud">💬 Aktivasi</button>
         <button class="outline" data-action="export-local-backup" style="margin-left:8px">Download Backup Data Lokal</button>
       </div>`;
     }else if(local){
       html = `<div id="ak2TenantActivationCard" class="card" style="margin-bottom:16px">
         <div class="title"><span>Cloud Tenant</span>${status('Verifikasi Manual','warn')}</div>
         <p class="muted">Mode lokal tetap gratis. Untuk aktivasi cloud, hubungi admin via WhatsApp agar pembayaran, membership, dan migrasi data diverifikasi manual.</p>
-        <button class="primary" data-action="activate-cloud">Hubungi WhatsApp untuk Aktivasi + Migrasi</button>
+        <button class="primary" data-action="activate-cloud">💬 Aktivasi</button>
         <button class="outline" data-action="export-local-backup" style="margin-left:8px">Download Backup Data Lokal</button>
         <button class="outline" data-action="cloud-login" style="margin-left:8px">Masuk Cloud</button>
       </div>`;
