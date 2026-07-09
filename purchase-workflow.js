@@ -4,6 +4,7 @@
   function poDate(v){ return v?new Date(v).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}):'-'; }
   function poItems(po){ return (po.items||[]).map(it=>{const p=DB.products.find(x=>x.id===it.productId);return {name:p?p.name:'Produk',qty:it.qty||0,cost:it.cost||0,total:(it.qty||0)*(it.cost||0)};}); }
   function countStatus(status){ return DB.purchaseOrders.filter(po=>po.status===status).length; }
+  function cloudMode(){ return !!(window.ApotekKilatSupabaseData && window.ApotekKilatSupabaseData.getMode && window.ApotekKilatSupabaseData.getMode()==='cloud'); }
 
   purchase=function(){
     const list=[...DB.purchaseOrders].sort((a,b)=>(b.date||0)-(a.date||0));
@@ -40,6 +41,7 @@
     DB.purchaseOrders.push(copy);saveDB();render();toast('PO baru berhasil dibuat dari '+po.code);
   }
   function receivePO(id){
+    if(cloudMode()) return toast('Mode cloud wajib menerima PO lewat RPC receive_purchase_order.', 'err');
     const po=DB.purchaseOrders.find(x=>x.id===id);if(!po)return;
     (po.items||[]).forEach(it=>{const p=DB.products.find(x=>x.id===it.productId);if(!p)return;const qty=Number(it.qty)||0;p.stock=(Number(p.stock)||0)+qty;p.batches=p.batches||[];p.batches.push({batchNo:'PO-'+po.code,received:new Date().toISOString().slice(0,10),expired:it.expired||p.expired,qty,location:'Gudang Pusat'});});
     po.status='Selesai';po.receivedAt=Date.now();saveDB();render();toast('Barang diterima dan stok diperbarui');
