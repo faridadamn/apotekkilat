@@ -150,6 +150,9 @@
       const receiveSource = String(window.ApotekKilatReceivePO && window.ApotekKilatReceivePO.openReceivePOForm || '');
       assert('PO receive RPC menangani selector tombol nyata', document.documentElement.innerHTML.includes('data-po-receive') && document.documentElement.innerHTML.includes('data-detail-receive') && /receive_purchase_order/.test(receiveSource), 'List PO dan detail PO harus diarahkan ke RPC receive_purchase_order di cloud.');
       assert('PO receive RPC memakai branch_id dan idempotency_key', /branch_id/.test(receiveSource) && /idempotency_key/.test(receiveSource), 'Penerimaan stok cloud wajib lewat payload atomic RPC.');
+      const soRpcSource = String(window.ApotekKilatStockOpnameRpc && window.ApotekKilatStockOpnameRpc.postStockOpnameViaRpc || '');
+      assert('Stock opname cloud memakai RPC post_stock_opname', /post_stock_opname/.test(soRpcSource), 'Selesaikan stock opname cloud harus lewat RPC, bukan mutasi stok client-side.');
+      assert('Stock opname local handler menolak cloud mode', /Mode cloud wajib menyelesaikan stock opname lewat RPC post_stock_opname/.test(String(window.finish || '') + document.documentElement.innerHTML), 'Local finish tidak boleh posting adjustment di cloud.');
 
       const product = DB.products[0];
       product.units = [{code:'TAB',label:'Tablet',factorToBase:1,price:2000,cost:1200},{code:'BOX',label:'Box',factorToBase:10,price:18000,cost:12000}];
