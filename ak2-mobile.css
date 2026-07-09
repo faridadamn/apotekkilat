@@ -26,11 +26,18 @@
   .top .search{min-width:0;flex:1;}
   .top .profile{display:none;}
   .ak2-local-data-warning{margin:0 18px 14px;display:block}.ak2-local-data-warning .outline{width:100%;margin-top:10px}
-  .sidebar{display:block;position:fixed;top:0;bottom:0;left:0;width:min(86vw,320px);z-index:80;transform:translateX(-105%);transition:transform .2s ease;background:var(--card,#fff);box-shadow:0 24px 60px rgba(15,23,42,.22);overflow:auto;}
+  .sidebar{display:block!important;position:fixed;top:0;bottom:0;left:0;width:min(86vw,320px);z-index:80;transform:translateX(-105%);transition:transform .2s ease;background:var(--card,#fff);box-shadow:0 24px 60px rgba(15,23,42,.22);overflow:auto;padding:22px 15px!important;}
   .app.mobile-drawer-open .sidebar{transform:translateX(0);}
+  .app.mobile-drawer-open .brand{justify-content:flex-start!important;padding:0 10px 25px!important;}
+  .app.mobile-drawer-open .brand h1,.app.mobile-drawer-open .brand p{display:block!important;}
+  .app.mobile-drawer-open .nav button{justify-content:flex-start!important;padding:11px 12px!important;}
+  .app.mobile-drawer-open .nav span:not(.ico):not(.pill){display:inline!important;width:auto!important;height:auto!important;opacity:1!important;visibility:visible!important;overflow:visible!important;}
+  .app.mobile-drawer-open .tip{display:block!important;}
+  .app.sidebar-collapsed.mobile-drawer-open .nav span:not(.ico):not(.pill){display:inline!important;width:auto!important;height:auto!important;opacity:1!important;visibility:visible!important;overflow:visible!important;}
+  .app.sidebar-collapsed.mobile-drawer-open .brand h1,.app.sidebar-collapsed.mobile-drawer-open .brand p{display:block!important;}
+  .app.sidebar-collapsed.mobile-drawer-open .tip{display:block!important;}
   .mobile-drawer-overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:70;display:none;}
   .app.mobile-drawer-open + .mobile-drawer-overlay{display:block;}
-  .app.sidebar-collapsed .nav span:not(.ico):not(.pill){display:inline!important;}
   .nav button{min-height:44px;}
   .grid5,.grid4,.grid3,.two,.split{grid-template-columns:1fr!important;}
   .head{gap:12px;align-items:flex-start;}
