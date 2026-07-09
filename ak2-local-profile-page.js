@@ -30,9 +30,16 @@
         <div class="head">
           <div>
             <h2>Profil Apotek</h2>
-            <p>Free tier lokal: 1 apotek, 1 cabang, 1 owner, tersimpan di perangkat ini.</p>
+            <p>Free tier lokal: 1 apotek, 1 cabang, 1 owner, tersimpan di perangkat/browser ini.</p>
           </div>
           <button class="primary" data-action="edit-local-profile">Edit Profil Lokal</button>
+        </div>
+        <div class="card ak2-local-data-card" style="margin-bottom:16px">
+          <div class="title"><span>Risiko Data Lokal</span>${status('Tidak Ada Backup Otomatis','warn')}</div>
+          <p><b>Data free tier hanya tersimpan di browser/perangkat ini.</b></p>
+          <p class="muted">Jika cache/browser dihapus, ganti device, install ulang browser, atau localStorage terhapus, data transaksi dan master lokal bisa hilang permanen.</p>
+          <p class="muted">Gunakan Cloud jika butuh backup, sinkronisasi, multi-device, multi-user, atau multi-cabang.</p>
+          <button class="outline" data-action="cloud-login">Gunakan Cloud untuk Backup</button>
         </div>
         <div class="two">
           <div class="card">
@@ -48,14 +55,15 @@
             <p><b>${esc(owner.name || 'Owner Lokal')}</b></p>
             <p class="muted">Akses penuh di perangkat ini untuk checkout, tambah produk, PO, resep, laporan, dan pengaturan.</p>
             <hr style="border:0;border-top:1px solid var(--line);margin:18px 0">
-            <p class="muted">Multi-user, multi-cabang, dan sinkronisasi antar perangkat tersedia saat masuk Cloud.</p>
+            <p class="muted">Multi-user, multi-cabang, sinkronisasi antar perangkat, dan backup otomatis tersedia saat masuk Cloud.</p>
             <button class="outline" data-action="cloud-login">Masuk Cloud</button>
           </div>
         </div>
         <div style="height:16px"></div>
         <div class="card">
           <div class="title"><span>Batasan Free Tier</span></div>
-          <p class="muted">Data tersimpan di browser/localStorage perangkat ini. Backup manual tetap disarankan sebelum menghapus cache atau pindah perangkat.</p>
+          <p class="muted"><b>LocalStorage bukan backup.</b> Browser dapat menghapus data lokal saat cache dibersihkan, storage penuh, profil browser diganti, atau browser di-install ulang.</p>
+          <p class="muted">Sebelum menghapus cache atau pindah perangkat, pastikan data penting sudah dicatat/export manual atau gunakan Cloud.</p>
         </div>
       </section>`;
     };
@@ -66,6 +74,7 @@
     const s = DB.settings || {};
     const owner = localOwner();
     modal('Edit Profil Apotek Lokal', `<div class="form">
+      <div class="notice" style="border:1px solid #f2d39a;background:#fff8e8;border-radius:12px;padding:12px"><i>!</i><div><b>Data lokal belum dibackup otomatis.</b><small>Perubahan profil dan data operasional tetap hanya tersimpan di browser/perangkat ini sampai masuk Cloud.</small></div></div>
       <label>Nama Apotek<input id="editLocalPharmacyName" value="${esc(s.pharmacyName || 'Apotek Saya')}" /></label>
       <label>Nama Owner<input id="editLocalOwnerName" value="${esc(owner.name || 'Owner Lokal')}" /></label>
       <label>Alamat Apotek<input id="editLocalPharmacyAddress" value="${esc(s.address || 'Alamat apotek')}" /></label>
@@ -89,7 +98,7 @@
       }
       setLocalNavLabel();
       render();
-      toast('Profil lokal diperbarui');
+      toast('Profil lokal diperbarui. Data tersimpan di perangkat ini.');
     });
   }
 
@@ -97,6 +106,7 @@
   if(originalAction){
     action = function(a, el){
       if(a === 'edit-local-profile') return editLocalProfile();
+      if(a === 'cloud-login' && window.ApotekKilatFreeTier && window.ApotekKilatFreeTier.openCloudLogin) return window.ApotekKilatFreeTier.openCloudLogin();
       return originalAction(a, el);
     };
   }
