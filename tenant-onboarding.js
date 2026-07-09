@@ -54,12 +54,54 @@
     }
   }
 
+  function importLocalBackup(){
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json,.json';
+    input.onchange = function(){
+      const file = input.files && input.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = function(){
+        try{
+          const payload = JSON.parse(String(reader.result || '{}'));
+          const data = payload && payload.data ? payload.data : payload;
+          const summary = {
+            products: Array.isArray(data.products) ? data.products.length : 0,
+            customers: Array.isArray(data.customers) ? data.customers.length : 0,
+            transactions: Array.isArray(data.transactions) ? data.transactions.length : 0,
+            purchaseOrders: Array.isArray(data.purchaseOrders) ? data.purchaseOrders.length : 0,
+            priceLists: Array.isArray(data.priceLists) ? data.priceLists.length : 0
+          };
+          modal('Import Backup', `<div class="form">
+            <p><b>Backup berhasil dibaca.</b></p>
+            <p class="muted">File ini belum langsung disinkronkan ke cloud. Untuk sementara import dipakai untuk validasi dan proses migrasi manual.</p>
+            <div class="card" style="box-shadow:none;background:#f6fffa;border-color:#b8ebcf">
+              <p class="muted">Produk: <b style="color:var(--ink)">${summary.products}</b></p>
+              <p class="muted">Pelanggan: <b style="color:var(--ink)">${summary.customers}</b></p>
+              <p class="muted">Transaksi: <b style="color:var(--ink)">${summary.transactions}</b></p>
+              <p class="muted">PO: <b style="color:var(--ink)">${summary.purchaseOrders}</b></p>
+              <p class="muted">Price list: <b style="color:var(--ink)">${summary.priceLists}</b></p>
+            </div>
+            <p class="muted">Lanjutkan aktivasi via WhatsApp dan lampirkan file backup ini agar admin bisa bantu migrasi.</p>
+            <button type="button" class="primary" style="width:100%" data-action="contact-cloud-wa">💬 Aktivasi</button>
+          </div>`, ()=>{ openWhatsApp('cloud'); return false; }, {saveLabel:'💬 Aktivasi'});
+        }catch(error){
+          console.error(error);
+          toast('File backup tidak valid', 'err');
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  }
+
   function waUrl(kind){
     const email = authSession && authSession.user ? authSession.user.email : '';
     const name = DB && DB.settings ? DB.settings.pharmacyName : '';
     const text = kind === 'improvement'
       ? `Halo, saya ingin memberi bantuan/saran improvement untuk ApotekKilat.%0A%0AEmail: ${encodeURIComponent(email || '-')}`
-      : `Halo, saya ingin aktivasi Cloud ApotekKilat.%0A%0AMohon info langkah pembayaran, verifikasi membership cloud, dan migrasi data lokal saya.%0A%0AEmail akun: ${encodeURIComponent(email || '-')}%0ANama apotek: ${encodeURIComponent(name || '-')}%0ARingkasan data lokal: ${encodeURIComponent(summaryText())}%0A%0ASaya akan lampirkan file backup data lokal dari tombol Download Backup Data Lokal di aplikasi.`;
+      : `Halo, saya ingin aktivasi Cloud ApotekKilat.%0A%0AMohon info langkah pembayaran, verifikasi membership cloud, dan migrasi data lokal saya.%0A%0AEmail akun: ${encodeURIComponent(email || '-')}%0ANama apotek: ${encodeURIComponent(name || '-')}%0ARingkasan data lokal: ${encodeURIComponent(summaryText())}%0A%0ASaya akan lampirkan file backup data lokal dari tombol Backup di aplikasi.`;
     return `https://wa.me/${SUPPORT_WA}?text=${text}`;
   }
 
@@ -98,7 +140,10 @@
         <p class="muted">Data lokal terdeteksi: <b style="color:var(--ink)">${s.products}</b> produk, <b style="color:var(--ink)">${s.customers}</b> pelanggan, <b style="color:var(--ink)">${s.transactions}</b> transaksi.</p>
       </div>
       <button type="button" class="primary" style="width:100%;margin-top:10px" data-action="contact-cloud-wa">💬 Aktivasi</button>
-      <button type="button" class="outline" style="width:100%;margin-top:8px" data-action="export-local-backup">Download Backup Data Lokal</button>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button type="button" class="outline" style="flex:1" data-action="export-local-backup">Backup</button>
+        <button type="button" class="outline" style="flex:1" data-action="import-local-backup">Import</button>
+      </div>
       <p class="muted">Catatan: tombol ini tidak menjalankan RPC <code>create_pharmacy_tenant</code>. Produk dan pelanggan akan diprioritaskan untuk migrasi manual. Histori transaksi lama bisa tetap dilihat dari mode lokal sampai migrasi historis disiapkan.</p>
     </div>`, ()=>{ openWhatsApp('cloud'); return false; }, {saveLabel:'💬 Aktivasi'});
   }
@@ -116,6 +161,12 @@
       exportLocalBackup();
       return;
     }
+    const importer = e.target.closest('[data-action="import-local-backup"]');
+    if(importer){
+      e.preventDefault();
+      importLocalBackup();
+      return;
+    }
     const improvement = e.target.closest('[data-action="contact-improvement-wa"]');
     if(improvement){
       e.preventDefault();
@@ -123,7 +174,7 @@
     }
   }, true);
 
-  window.ApotekKilatTenantOnboarding = {openTenantUpgrade, canUpgradeToCloud, showLocalModeNotice, openWhatsApp, submitTenant, exportLocalBackup, localSummary};
+  window.ApotekKilatTenantOnboarding = {openTenantUpgrade, canUpgradeToCloud, showLocalModeNotice, openWhatsApp, submitTenant, exportLocalBackup, importLocalBackup, localSummary};
   window.addEventListener('apotekkilat:local-mode', showLocalModeNotice);
   setInterval(showLocalModeNotice, 1200);
 })();
