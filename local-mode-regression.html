@@ -139,7 +139,9 @@
       assert('Local free tier hanya 1 cabang', Array.isArray(DB.branches) && DB.branches.length === 1, 'Tidak boleh ada dummy Jakarta/Bandung/Surabaya.');
       assert('Local free tier hanya 1 owner', Array.isArray(DB.users) && DB.users.length === 1 && DB.users[0].role === 'Owner', 'Tidak boleh ada user dummy multi-role.');
       render();
-      assert('Warning data lokal tampil global', !!document.querySelector('.ak2-local-data-warning') && /tidak memiliki backup otomatis|hanya tersimpan/i.test(document.querySelector('.ak2-local-data-warning').textContent), 'User harus melihat risiko data localStorage.');
+      assert('Disclaimer data lokal tidak muncul sebagai banner global', !document.querySelector('.ak2-local-data-warning'), 'Disclaimer cukup di Pengaturan/Profil Apotek, bukan di halaman kerja harian.');
+      S.page = 'pengaturan'; render();
+      assert('Disclaimer data lokal tampil di Pengaturan', !!document.querySelector('#ak2LocalDataSettingsWarning') && /backup otomatis|localStorage|menghapus data permanen/i.test(document.querySelector('#ak2LocalDataSettingsWarning').textContent), 'User harus melihat risiko localStorage di Pengaturan.');
       assert('Semua halaman inti render tanpa Supabase', ['dashboard','inventori','kasir','pembelian','pelanggan','price-list','laporan-golongan','retur','cabang','chat'].every(p=>{ S.page=p; try{ render(); return !!document.querySelector('#pages .page'); }catch(e){ console.error(p,e); return false; } }), 'Render smoke test untuk fitur baru dan lama.');
 
       const cloudCheckoutSource = String(window.ApotekKilatEntityCrud && window.ApotekKilatEntityCrud.checkoutTransaction || '');
