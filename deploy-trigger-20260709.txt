@@ -1,0 +1,2 @@
+Trigger rebuild after mobile kasir toast and chip scroll fixes.
+Commit target: main
