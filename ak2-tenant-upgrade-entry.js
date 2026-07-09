@@ -110,6 +110,7 @@
       openCloudLogin();
     }
   }, true);
+  window.ApotekKilatTenantUpgradeEntry = {isLocalFreeSession, canUpgrade, openUpgrade, injectSettingsEntry, updateVisibility};
   window.addEventListener('apotekkilat:tenant-updated', updateVisibility);
   setInterval(updateVisibility, 1500);
   setTimeout(updateVisibility, 0);
