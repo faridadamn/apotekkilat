@@ -1,5 +1,5 @@
 /* Free/local mode data retention warning.
-   Makes localStorage limitation visible in the UI, not only in comments/settings. */
+   Keep the disclaimer visible in Settings only so it does not interrupt daily workflows. */
 (function(){
   function isCloudMode(){
     return !!(window.ApotekKilatSupabaseData &&
@@ -9,20 +9,6 @@
 
   function isLocalFreeMode(){
     return !!(DB && DB.meta && DB.meta.freeTierOfflineFirst && !isCloudMode());
-  }
-
-  function bannerHtml(){
-    return `<div class="ak2-local-data-warning">
-      <div><b>Data lokal: hanya tersimpan di perangkat/browser ini.</b><br><span>Jika cache/browser dihapus, ganti device, install ulang browser, atau localStorage terhapus, data bisa hilang permanen. Tier gratis tidak memiliki backup otomatis.</span></div>
-      <button class="outline" data-action="cloud-login">Gunakan Cloud untuk Backup</button>
-    </div>`;
-  }
-
-  function injectBanner(){
-    if(!isLocalFreeMode()) return;
-    const pages = document.querySelector('#pages');
-    if(!pages || pages.querySelector('.ak2-local-data-warning')) return;
-    pages.insertAdjacentHTML('afterbegin', bannerHtml());
   }
 
   function injectSettingsWarning(){
@@ -42,7 +28,6 @@
   if(originalRender){
     render = function(){
       const out = originalRender.apply(this, arguments);
-      injectBanner();
       injectSettingsWarning();
       return out;
     };
@@ -58,5 +43,5 @@
     };
   }
 
-  setTimeout(()=>{ injectBanner(); injectSettingsWarning(); }, 120);
+  setTimeout(()=>{ injectSettingsWarning(); }, 120);
 })();
