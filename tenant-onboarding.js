@@ -97,10 +97,10 @@
         <p class="muted">Email akun login: <b style="color:var(--ink)">${esc(email || '-')}</b></p>
         <p class="muted">Data lokal terdeteksi: <b style="color:var(--ink)">${s.products}</b> produk, <b style="color:var(--ink)">${s.customers}</b> pelanggan, <b style="color:var(--ink)">${s.transactions}</b> transaksi.</p>
       </div>
-      <button type="button" class="primary" style="width:100%;margin-top:10px" data-action="contact-cloud-wa">Hubungi WhatsApp untuk Aktivasi + Migrasi</button>
+      <button type="button" class="primary" style="width:100%;margin-top:10px" data-action="contact-cloud-wa">💬 Aktivasi</button>
       <button type="button" class="outline" style="width:100%;margin-top:8px" data-action="export-local-backup">Download Backup Data Lokal</button>
       <p class="muted">Catatan: tombol ini tidak menjalankan RPC <code>create_pharmacy_tenant</code>. Produk dan pelanggan akan diprioritaskan untuk migrasi manual. Histori transaksi lama bisa tetap dilihat dari mode lokal sampai migrasi historis disiapkan.</p>
-    </div>`, ()=>{ openWhatsApp('cloud'); return false; }, {saveLabel:'Hubungi WhatsApp'});
+    </div>`, ()=>{ openWhatsApp('cloud'); return false; }, {saveLabel:'💬 Aktivasi'});
   }
 
   document.addEventListener('click', function(e){
