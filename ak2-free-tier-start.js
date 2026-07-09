@@ -106,8 +106,8 @@
     const logout = document.querySelector('#logoutBtn');
     if(logout){
       logout.textContent = 'Mode Lokal';
-      logout.title = 'Free tier berjalan tanpa akun. Login dipakai saat upgrade ke Cloud.';
-      logout.onclick = function(){ toast('Mode lokal aktif. Data tersimpan di perangkat ini.'); };
+      logout.title = 'Free tier berjalan tanpa akun. Data hanya tersimpan di browser/perangkat ini.';
+      logout.onclick = function(){ toast('Mode lokal aktif. Data hanya tersimpan di browser/perangkat ini.'); };
     }
   }
 
@@ -126,12 +126,15 @@
     if(onboardingShown || isCloudMode() || !DB || (DB.meta && DB.meta.freeTierOnboarded) || typeof modal !== 'function') return;
     onboardingShown = true;
     modal('Setup Apotek Lokal', `<div class="form">
+      <div class="notice" style="border:1px solid #f2d39a;background:#fff8e8;border-radius:12px;padding:12px;margin-bottom:4px">
+        <i>!</i><div><b>Penting: data free tier hanya tersimpan di perangkat ini.</b><small>Jika cache/browser dihapus, ganti device, install ulang browser, atau localStorage terhapus, data transaksi dan master lokal bisa hilang permanen. Tidak ada backup otomatis di tier gratis. Gunakan Cloud untuk sinkronisasi dan backup.</small></div>
+      </div>
       <p class="muted">Free tier dipakai untuk 1 apotek, 1 cabang, 1 owner di perangkat ini. Isi data awal agar tidak memakai contoh Jakarta/Bandung/Surabaya.</p>
       <label>Nama apotek kamu<input id="localPharmacyName" value="${esc(DB.settings && DB.settings.pharmacyName && DB.settings.pharmacyName !== 'Apotek Saya' ? DB.settings.pharmacyName : '')}" placeholder="Contoh: Apotek Farid Sehat" /></label>
       <label>Nama kamu<input id="localOwnerName" value="${esc(localOwnerName() === 'Owner Lokal' ? '' : localOwnerName())}" placeholder="Contoh: Farid Adam" /></label>
       <label>Alamat apotek<input id="localPharmacyAddress" value="${esc(DB.settings && DB.settings.address && DB.settings.address !== 'Alamat apotek' ? DB.settings.address : '')}" placeholder="Contoh: Bekasi" /></label>
       <label>Nomor WhatsApp<input id="localPharmacyWhatsapp" value="${esc(DB.settings && DB.settings.whatsapp ? DB.settings.whatsapp : '')}" placeholder="08xxxx" /></label>
-      <p class="muted">Nanti multi-user dan multi-cabang dipakai saat masuk Cloud.</p>
+      <p class="muted">Nanti multi-user, multi-cabang, sinkronisasi, dan backup otomatis dipakai saat masuk Cloud.</p>
     </div>`, ()=>{
       const pharmacyName = document.querySelector('#localPharmacyName').value.trim() || 'Apotek Saya';
       const ownerName = document.querySelector('#localOwnerName').value.trim() || 'Owner Lokal';
@@ -142,8 +145,8 @@
       setLocalNavLabels();
       if(typeof render === 'function') render();
       renderLocalHeader();
-      toast('Profil apotek lokal siap dipakai');
-    }, {saveLabel:'Mulai Pakai'});
+      toast('Profil apotek lokal siap. Data tersimpan di perangkat ini.');
+    }, {saveLabel:'Saya Mengerti, Mulai Pakai'});
   }
 
   async function startLocalFreeTier(){
@@ -166,11 +169,12 @@
     if(typeof setAuthMode === 'function') setAuthMode('login');
     const notice = document.querySelector('#authConfigNotice');
     if(notice){
-      notice.textContent = isSupabaseConfigured() ? 'Masuk untuk aktivasi / akses Cloud. Mode lokal tetap tersimpan di perangkat ini.' : 'Isi dulu Supabase URL dan publishable key di supabase-config.js untuk login Cloud.';
+      const configured = typeof isSupabaseConfigured === 'function' && isSupabaseConfigured();
+      notice.textContent = configured ? 'Masuk untuk aktivasi / akses Cloud. Mode lokal tetap tersimpan di perangkat ini sampai sinkronisasi Cloud tersedia.' : 'Isi dulu Supabase URL dan publishable key di supabase-config.js untuk login Cloud.';
       notice.classList.add('show');
     }
     const subtitle = document.querySelector('#authSubtitle');
-    if(subtitle) subtitle.textContent = 'Login hanya diperlukan untuk mode Cloud. Free tier lokal bisa dipakai tanpa akun.';
+    if(subtitle) subtitle.textContent = 'Login hanya diperlukan untuk mode Cloud. Free tier lokal bisa dipakai tanpa akun, tetapi tidak memiliki backup otomatis.';
   }
 
   function cancelCloudLogin(){
