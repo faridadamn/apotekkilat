@@ -142,6 +142,9 @@
       assert('Disclaimer data lokal tidak muncul sebagai banner global', !document.querySelector('.ak2-local-data-warning'), 'Disclaimer cukup di Pengaturan/Profil Apotek, bukan di halaman kerja harian.');
       S.page = 'pengaturan'; render();
       assert('Disclaimer data lokal tampil di Pengaturan', !!document.querySelector('#ak2LocalDataSettingsWarning') && /backup otomatis|localStorage|menghapus data permanen/i.test(document.querySelector('#ak2LocalDataSettingsWarning').textContent), 'User harus melihat risiko localStorage di Pengaturan.');
+      assert('Entry aktivasi tenant tersedia di Pengaturan', !!document.querySelector('#ak2TenantActivationCard') && /Cloud Tenant|Masuk Cloud|Aktifkan Cloud|Daftarkan Apotek/i.test(document.querySelector('#ak2TenantActivationCard').textContent), 'Pengaturan harus punya jalan keluar menuju cloud onboarding.');
+      const tenantEntrySource = String(window.ApotekKilatTenantUpgradeEntry && window.ApotekKilatTenantUpgradeEntry.injectSettingsEntry || '');
+      assert('Entry tenant upgrade memanggil onboarding RPC flow', /data-action=\"activate-cloud\"|openTenantUpgrade|create_pharmacy_tenant/.test(tenantEntrySource + String(window.ApotekKilatTenantOnboarding && window.ApotekKilatTenantOnboarding.openTenantUpgrade || '')), 'Akun login tanpa tenant harus melihat tombol Aktivasi Cloud / Daftarkan Apotek.');
       assert('Semua halaman inti render tanpa Supabase', ['dashboard','inventori','kasir','pembelian','pelanggan','price-list','laporan-golongan','retur','cabang','chat'].every(p=>{ S.page=p; try{ render(); return !!document.querySelector('#pages .page'); }catch(e){ console.error(p,e); return false; } }), 'Render smoke test untuk fitur baru dan lama.');
 
       const cloudCheckoutSource = String(window.ApotekKilatEntityCrud && window.ApotekKilatEntityCrud.checkoutTransaction || '');
