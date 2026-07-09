@@ -2,6 +2,7 @@
    Local state remains responsive; cloud mode writes the changed entity/workflow directly. */
 (function(){
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const previousCheckout = typeof checkout === 'function' ? checkout : null;
   const uuid = () => crypto.randomUUID();
   const isUuid = id => UUID_RE.test(String(id || ''));
   const n = v => Number(v) || 0;
@@ -13,6 +14,7 @@
   function pharmacyId(){ return window.ApotekKilatSupabaseData && window.ApotekKilatSupabaseData.getPharmacyId ? window.ApotekKilatSupabaseData.getPharmacyId() : null; }
   function cloudId(prefix){ return cloudReady() ? uuid() : uid(prefix); }
   function localOnlySave(){ localStorage.setItem(DB_KEY, JSON.stringify(DB)); }
+  function activeBranchId(){ return DB.activeBranchId || ((DB.branches || [])[0] && DB.branches[0].id) || null; }
 
   async function writeProduct(product, existing){
     if(!cloudReady()) return;
@@ -123,39 +125,47 @@
     if(error) throw error;
   }
 
-  async function rpcCheckout(tx){
-    if(!cloudReady()) return;
-    const payload = {
-      id: tx.id,
-      pharmacy_id: pharmacyId(),
-      branch_id: tx.branchId || null,
-      customer_id: tx.customerId || null,
-      code: tx.code,
-      subtotal: n(tx.subtotal),
-      tax: n(tx.tax),
-      total: n(tx.total),
-      payment_method: tx.payment || 'Tunai',
-      status: tx.status || 'Selesai',
-      happened_at: ts(tx.time),
-      prescription_id: tx.prescriptionId || null,
-      items: (tx.items||[]).map(i=>({
-        id: isUuid(i.id) ? i.id : (i.id = uuid()),
-        product_id: i.productId || null,
-        product_name: i.name || 'Produk',
-        unit_code: i.unitCode || null,
-        qty: n(i.qty),
-        base_qty: i.baseQty==null ? n(i.qty) : n(i.baseQty),
-        price: n(i.price),
-        cost_base: i.costBase==null ? null : n(i.costBase),
-        original_price: i.originalPrice==null ? n(i.price) : n(i.originalPrice),
-        discount_amount: n(i.discountAmount),
-        price_list_id: i.priceListId || null,
-        price_list_name: i.priceListName || null,
-        drug_class: i.golongan || null
-      }))
-    };
-    const {error} = await supabaseClient.rpc('checkout_transaction', {p_payload: payload});
+  function normalizeCheckoutItems(){
+    return (S.cart || []).map(c=>{
+      const p = DB.products.find(x=>x.id===c.id || x.id===c.productId);
+      if(!p) throw new Error('Produk di keranjang tidak ditemukan.');
+      const qty = n(c.q || c.qty || c.baseQty);
+      if(qty <= 0) throw new Error(`Qty ${p.name} tidak valid.`);
+      return {
+        product_id: p.id,
+        unit_code: c.unitCode || p.saleUnit || p.baseUnit || null,
+        qty,
+        _local_product: p
+      };
+    });
+  }
+
+  function requirePrescriptionForRestricted(items){
+    const restricted = items.map(i=>i._local_product).filter(p=>['Keras','Narkotika','Psikotropika'].includes(p && p.golongan));
+    if(!restricted.length) return true;
+    const rxId = S.cartPrescriptionId || S.selectedPrescriptionId || S.cartRxId || null;
+    if(!rxId){ toast('Obat keras/narkotika/psikotropika wajib memakai resep terverifikasi.', 'err'); return false; }
+    const rx = (DB.prescriptions || []).find(r=>r.id===rxId && ['Diproses','Siap Diambil','Selesai','Terverifikasi'].includes(r.status));
+    if(!rx){ toast('Resep belum terverifikasi atau tidak ditemukan.', 'err'); return false; }
+    const missing = restricted.find(p=>!(rx.items || []).some(it=>it.productId===p.id || String(it.name||'').trim().toLowerCase()===String(p.name||'').trim().toLowerCase()));
+    if(missing){ toast(`Resep terpilih tidak memuat ${missing.name}.`, 'err'); return false; }
+    return rxId;
+  }
+
+  async function rpcCheckout(payload){
+    if(!cloudReady()) return null;
+    const {data, error} = await supabaseClient.rpc('checkout_transaction', {p_payload: payload});
     if(error) throw error;
+    return Array.isArray(data) ? (data[0] || {}) : (data || {});
+  }
+
+  function friendlyCheckoutError(err){
+    const msg = String((err && err.message) || err || 'Checkout gagal di Supabase');
+    if(/branch_id is required|branch/i.test(msg)) return 'Cabang aktif cloud tidak valid. Pilih cabang cloud dulu.';
+    if(/idempotency_key/i.test(msg)) return 'Checkout gagal karena kunci transaksi tidak valid. Coba ulang transaksi.';
+    if(/prescription|resep/i.test(msg)) return 'Resep belum valid untuk obat yang dipilih.';
+    if(/stock|stok/i.test(msg)) return 'Stok tidak cukup atau sudah berubah di server. Refresh data lalu coba lagi.';
+    return msg;
   }
 
   async function rpcCompleteReturn(kind, id){
@@ -239,24 +249,57 @@
   };
 
   checkout = async function(){
-    if(!S.cart.length) return toast('Keranjang masih kosong','err');
-    for(const c of S.cart){ const p = DB.products.find(x=>x.id===c.id); if(!p || p.stock < c.q) return toast(`Stok ${p?p.name:'produk'} tidak cukup`,'err'); }
-    const sub = S.cart.reduce((a,c)=>{ const p=DB.products.find(x=>x.id===c.id); return a+p.price*c.q; },0);
-    const tax = Math.round(sub*.11);
-    const items = S.cart.map(c=>{ const p=DB.products.find(x=>x.id===c.id); return {id:cloudId('ti'),productId:p.id,name:p.name,price:p.price,qty:c.q,costBase:p.cost,golongan:p.golongan}; });
-    const branchId = DB.activeBranchId || (DB.branches[0] && DB.branches[0].id);
-    const tx = {id:cloudId('t'), code:'TRX-'+String(Date.now()).slice(-9), customerId:S.cartCustomerId, branchId, items, subtotal:sub, tax, total:sub+tax, payment:S.paymentMethod||'Tunai', time:Date.now(), status:'Selesai'};
-    try{ await rpcCheckout(tx); }
-    catch(err){ console.error(err); return toast(err.message || 'Checkout gagal di Supabase', 'err'); }
-    items.forEach(it=>{ const p=DB.products.find(x=>x.id===it.productId); if(p) p.stock -= it.qty; });
+    if(!cloudReady()) return previousCheckout ? previousCheckout() : toast('Checkout tidak tersedia', 'err');
+    if(!S.cart || !S.cart.length) return toast('Keranjang masih kosong','err');
+    const branchId = activeBranchId();
+    if(!isUuid(branchId)) return toast('Cabang aktif cloud tidak valid. Pilih cabang cloud dulu.', 'err');
+    let items;
+    try{ items = normalizeCheckoutItems(); }
+    catch(err){ return toast(err.message, 'err'); }
+    const prescriptionId = requirePrescriptionForRestricted(items);
+    if(prescriptionId === false) return;
+    const idempotencyKey = uuid();
+    const payload = {
+      branch_id: branchId,
+      customer_id: isUuid(S.cartCustomerId) ? S.cartCustomerId : null,
+      payment_method: S.paymentMethod || 'Tunai',
+      prescription_id: isUuid(prescriptionId) ? prescriptionId : null,
+      idempotency_key: idempotencyKey,
+      items: items.map(i=>({product_id:i.product_id, unit_code:i.unit_code, qty:i.qty}))
+    };
+    let result;
+    try{ result = await rpcCheckout(payload); }
+    catch(err){ console.error(err); return toast(friendlyCheckoutError(err), 'err'); }
+
+    const responseItems = Array.isArray(result.items) ? result.items : items.map(i=>({product_id:i.product_id, unit_code:i.unit_code, qty:i.qty}));
+    const txItems = responseItems.map(row=>{
+      const p = DB.products.find(x=>x.id === (row.product_id || row.productId));
+      const qty = n(row.qty);
+      const baseQty = n(row.base_qty || row.baseQty || qty);
+      if(p) p.stock = Math.max(0, n(p.stock) - baseQty);
+      return {
+        id: row.id || uuid(), productId: row.product_id || row.productId, name: row.product_name || row.name || (p && p.name) || 'Produk',
+        unitCode: row.unit_code || row.unitCode || (p && p.saleUnit) || null, qty, baseQty,
+        price: n(row.price), costBase: row.cost_base==null ? null : n(row.cost_base), originalPrice: row.original_price==null ? undefined : n(row.original_price),
+        discountAmount: n(row.discount_amount), priceListId: row.price_list_id || null, priceListName: row.price_list_name || null,
+        golongan: row.drug_class || (p && p.golongan) || null
+      };
+    });
+    const tx = {
+      id: result.transaction_id || result.id || uuid(), code: result.code || ('TRX-'+String(Date.now()).slice(-9)),
+      customerId: payload.customer_id, branchId, items: txItems,
+      subtotal: n(result.subtotal), tax: n(result.tax || result.vat_total), total: n(result.total),
+      payment: payload.payment_method, time: Date.now(), status: result.status || 'Selesai', prescriptionId: payload.prescription_id,
+      idempotencyKey
+    };
     DB.transactions.push(tx);
     if(S.cartCustomerId){ const cust = DB.customers.find(c=>c.id===S.cartCustomerId); if(cust) cust.points += Math.floor(tx.total/10000); }
     localOnlySave();
     const custName = S.cartCustomerId ? (DB.customers.find(c=>c.id===S.cartCustomerId)||{}).name : 'Pelanggan Umum';
-    const receipt = `ApotekKilat\n${'-'.repeat(28)}\n${tx.code}\n${new Date(tx.time).toLocaleString('id-ID')}\nPelanggan: ${custName}\n${'-'.repeat(28)}\n`+items.map(it=>`${it.name} x${it.qty}\n  ${fmt(it.price*it.qty)}`).join('\n')+`\n${'-'.repeat(28)}\nSubtotal: ${fmt(sub)}\nPPN 11%: ${fmt(tax)}\nTOTAL: ${fmt(tx.total)}\nBayar: ${tx.payment}`;
-    S.cart = []; S.cartCustomerId = null;
+    const receipt = `ApotekKilat\n${'-'.repeat(28)}\n${tx.code}\n${new Date(tx.time).toLocaleString('id-ID')}\nPelanggan: ${custName}\n${'-'.repeat(28)}\n`+tx.items.map(it=>`${it.name} x${it.qty}\n  ${fmt(n(it.price)*n(it.qty))}`).join('\n')+`\n${'-'.repeat(28)}\nSubtotal: ${fmt(tx.subtotal)}\nPPN 11%: ${fmt(tx.tax)}\nTOTAL: ${fmt(tx.total)}\nBayar: ${tx.payment}`;
+    S.cart = []; S.cartCustomerId = null; S.cartPrescriptionId = null;
     modal('Transaksi Berhasil', `<div class="receipt">${esc(receipt)}</div>`, null, {saveLabel:'Tutup'});
-    render(); toast('Transaksi berhasil dibuat');
+    render(); toast('Transaksi berhasil dibuat via RPC');
   };
 
   openPOForm = function(){
