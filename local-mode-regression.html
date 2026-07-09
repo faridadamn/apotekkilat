@@ -142,6 +142,10 @@
       assert('Warning data lokal tampil global', !!document.querySelector('.ak2-local-data-warning') && /tidak memiliki backup otomatis|hanya tersimpan/i.test(document.querySelector('.ak2-local-data-warning').textContent), 'User harus melihat risiko data localStorage.');
       assert('Semua halaman inti render tanpa Supabase', ['dashboard','inventori','kasir','pembelian','pelanggan','price-list','laporan-golongan','retur','cabang','chat'].every(p=>{ S.page=p; try{ render(); return !!document.querySelector('#pages .page'); }catch(e){ console.error(p,e); return false; } }), 'Render smoke test untuk fitur baru dan lama.');
 
+      const cloudCheckoutSource = String(window.ApotekKilatEntityCrud && window.ApotekKilatEntityCrud.checkoutTransaction || '');
+      assert('Entity CRUD checkout RPC memakai payload atomic', /idempotency_key/.test(cloudCheckoutSource) && /branch_id/.test(cloudCheckoutSource), 'Guard agar checkout_transaction tidak dipanggil tanpa branch_id/idempotency_key.');
+      assert('Entity CRUD checkout tidak mengirim total client ke RPC', !/subtotal\s*:|total\s*:|tax\s*:|price\s*:/.test(cloudCheckoutSource), 'Harga, diskon, PPN, dan HPP harus dihitung server.');
+
       const product = DB.products[0];
       product.units = [{code:'TAB',label:'Tablet',factorToBase:1,price:2000,cost:1200},{code:'BOX',label:'Box',factorToBase:10,price:18000,cost:12000}];
       product.baseUnit = 'TAB'; product.saleUnit = 'BOX'; product.purchaseUnit = 'BOX'; product.stock = 20; product.golongan = 'Bebas';
