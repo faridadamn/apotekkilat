@@ -1,4 +1,4 @@
-/* Iterasi 2 Phase B — visible login and tenant onboarding entry points. */
+/* Iterasi 2 Phase B — settings-only login, support, and tenant onboarding entry points. */
 (function(){
   function isLocalFreeSession(){
     return !!(authSession && authSession.user && authSession.user.id === 'local-owner');
@@ -41,40 +41,11 @@
   function cloudHasTenant(){
     return !!(window.ApotekKilatSupabaseData && window.ApotekKilatSupabaseData.getPharmacyId && window.ApotekKilatSupabaseData.getPharmacyId());
   }
-  function injectHeaderButtons(){
-    const top = document.querySelector('.top');
-    if(!top) return;
-    const logout = document.querySelector('#logoutBtn');
-
-    if(!document.querySelector('#ak2SupportBtn')){
-      const supportBtn = document.createElement('button');
-      supportBtn.id = 'ak2SupportBtn';
-      supportBtn.className = 'outline small-btn';
-      supportBtn.type = 'button';
-      supportBtn.textContent = 'Bantuan & Saran';
-      supportBtn.onclick = ()=>openWhatsApp('improvement');
-      top.insertBefore(supportBtn, logout || null);
-    }
-
-    if(!document.querySelector('#ak2CloudLoginBtn')){
-      const loginBtn = document.createElement('button');
-      loginBtn.id = 'ak2CloudLoginBtn';
-      loginBtn.className = 'outline small-btn';
-      loginBtn.type = 'button';
-      loginBtn.textContent = 'Masuk Cloud';
-      loginBtn.onclick = openCloudLogin;
-      top.insertBefore(loginBtn, logout || null);
-    }
-
-    if(!document.querySelector('#ak2CloudUpgradeBtn')){
-      const upgradeBtn = document.createElement('button');
-      upgradeBtn.id = 'ak2CloudUpgradeBtn';
-      upgradeBtn.className = 'outline small-btn';
-      upgradeBtn.type = 'button';
-      upgradeBtn.textContent = 'Aktifkan Cloud';
-      upgradeBtn.onclick = openUpgrade;
-      top.insertBefore(upgradeBtn, logout || null);
-    }
+  function removeHeaderButtons(){
+    ['#ak2SupportBtn','#ak2CloudLoginBtn','#ak2CloudUpgradeBtn'].forEach(sel=>{
+      const el = document.querySelector(sel);
+      if(el) el.remove();
+    });
   }
   function injectSettingsEntry(){
     if(S.page !== 'pengaturan') return;
@@ -127,14 +98,8 @@
     else pages.insertAdjacentHTML('afterbegin', html);
   }
   function updateVisibility(){
-    injectHeaderButtons();
+    removeHeaderButtons();
     injectSettingsEntry();
-    const loginBtn = document.querySelector('#ak2CloudLoginBtn');
-    const upgradeBtn = document.querySelector('#ak2CloudUpgradeBtn');
-    const supportBtn = document.querySelector('#ak2SupportBtn');
-    if(loginBtn) loginBtn.style.display = isLocalFreeSession() ? '' : 'none';
-    if(upgradeBtn) upgradeBtn.style.display = cloudHasTenant() ? 'none' : '';
-    if(supportBtn) supportBtn.style.display = '';
   }
   const oldRender = typeof render === 'function' ? render : null;
   if(oldRender){
@@ -169,7 +134,7 @@
       openWhatsApp('improvement');
     }
   }, true);
-  window.ApotekKilatTenantUpgradeEntry = {isLocalFreeSession, canUpgrade, openUpgrade, openWhatsApp, exportBackup, injectSettingsEntry, updateVisibility};
+  window.ApotekKilatTenantUpgradeEntry = {isLocalFreeSession, canUpgrade, openUpgrade, openWhatsApp, exportBackup, removeHeaderButtons, injectSettingsEntry, updateVisibility};
   window.addEventListener('apotekkilat:tenant-updated', updateVisibility);
   setInterval(updateVisibility, 1500);
   setTimeout(updateVisibility, 0);
