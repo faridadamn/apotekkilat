@@ -1,0 +1,19 @@
+@media(max-width:720px){
+  .toast{position:fixed!important;left:14px!important;right:14px!important;bottom:28px!important;z-index:9999!important;text-align:center!important;max-width:none!important;width:auto!important;pointer-events:none}
+  body.ak2-cartbar-visible .toast{bottom:116px!important}
+
+  .pos .tabs,.card .tabs,.tabs{display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;align-items:center!important;gap:8px!important;overflow-x:auto!important;overflow-y:hidden!important;-webkit-overflow-scrolling:touch;max-width:100%;white-space:nowrap;scrollbar-width:none;padding:0 4px 8px 0!important;margin:0 0 12px 0!important}
+  .pos .tabs::-webkit-scrollbar,.card .tabs::-webkit-scrollbar,.tabs::-webkit-scrollbar{display:none!important}
+  .pos .tabs .chip,.card .tabs .chip,.tabs .chip{flex:0 0 auto!important;white-space:nowrap!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;min-height:40px!important;padding:8px 12px!important}
+
+  .pos{display:block!important}
+  .pos .product-grid{grid-template-columns:1fr!important;gap:12px!important}
+  .pos .product{display:block!important;padding:14px!important}
+  .pos .product select{width:100%;min-height:40px;margin-top:8px;border:1px solid var(--line);border-radius:10px;padding:0 10px;background:#fff}
+  .pos .product button{min-height:42px!important}
+  .pos aside.card{margin-top:16px;padding-bottom:104px!important}
+}
+
+@media(min-width:560px) and (max-width:720px){
+  .pos .product-grid{grid-template-columns:repeat(2,1fr)!important}
+}
