@@ -102,6 +102,7 @@
 <script src="ak2-free-tier-start.js"></script>
 <script src="ak2-local-profile-page.js"></script>
 <script src="ak2-followup-notes.js"></script>
+<script src="ak2-local-data-warning.js"></script>
 <script src="ak2-critical-rpc-wiring.js"></script>
 <script src="ak2-tenant-upgrade-entry.js"></script>
 <script src="ak2-mobile.js"></script>
@@ -138,6 +139,7 @@
       assert('Local free tier hanya 1 cabang', Array.isArray(DB.branches) && DB.branches.length === 1, 'Tidak boleh ada dummy Jakarta/Bandung/Surabaya.');
       assert('Local free tier hanya 1 owner', Array.isArray(DB.users) && DB.users.length === 1 && DB.users[0].role === 'Owner', 'Tidak boleh ada user dummy multi-role.');
       render();
+      assert('Warning data lokal tampil global', !!document.querySelector('.ak2-local-data-warning') && /tidak memiliki backup otomatis|hanya tersimpan/i.test(document.querySelector('.ak2-local-data-warning').textContent), 'User harus melihat risiko data localStorage.');
       assert('Semua halaman inti render tanpa Supabase', ['dashboard','inventori','kasir','pembelian','pelanggan','price-list','laporan-golongan','retur','cabang','chat'].every(p=>{ S.page=p; try{ render(); return !!document.querySelector('#pages .page'); }catch(e){ console.error(p,e); return false; } }), 'Render smoke test untuk fitur baru dan lama.');
 
       const product = DB.products[0];
@@ -170,6 +172,7 @@
 
       S.page='cabang'; render();
       assert('Menu multi-cabang lokal diframe sebagai Profil Apotek', /Profil Apotek/.test(document.querySelector('#pages').textContent), 'Free tier tidak boleh expose manajemen multi-cabang.');
+      assert('Profil Apotek menjelaskan risiko kehilangan data', /hilang permanen|Tidak Ada Backup Otomatis|localStorage/i.test(document.querySelector('#pages').textContent), 'Batasan localStorage harus jelas di profil.');
 
       summaryEl.className = 'status ok';
       summaryEl.textContent = 'PASS — semua regression local mode lolos.';
