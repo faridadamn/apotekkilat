@@ -1,0 +1,21 @@
+/* ak2-mobile-polish-2.css
+   Iterasi 4 — Fokus UX & user journey mobile.
+   Aditif di atas ak2-mobile.css + ak2-mobile-polish.css. Muat file ini paling terakhir. */
+
+@media(max-width:720px){
+  .toast{right:16px;left:16px;bottom:28px;z-index:70;text-align:center}
+  body:has(.ak2-cartbar.show) .toast{bottom:104px}
+
+  .grid5,.grid4{grid-template-columns:repeat(2,1fr)!important;gap:10px!important}
+  .grid5 .card.kpi,.grid4 .card.kpi{padding:13px;border-radius:14px}
+  .kpi .kicon{font-size:16px;margin-bottom:6px}
+  .kpi label{font-size:10.5px}
+  .kpi strong{font-size:17px;display:block;margin:2px 0}
+  .kpi span{font-size:10.5px}
+
+  .tabs{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px;margin:0 -16px 12px;padding-left:16px;padding-right:16px;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tabs .chip{flex:0 0 auto;white-space:nowrap}
+
+  .empty{padding:32px 20px;text-align:center;border-radius:14px;background:#f8fbfa;border:1px dashed var(--line)}
+}
