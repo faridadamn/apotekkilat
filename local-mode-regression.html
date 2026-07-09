@@ -145,6 +145,9 @@
       const cloudCheckoutSource = String(window.ApotekKilatEntityCrud && window.ApotekKilatEntityCrud.checkoutTransaction || '');
       assert('Entity CRUD checkout RPC memakai payload atomic', /idempotency_key/.test(cloudCheckoutSource) && /branch_id/.test(cloudCheckoutSource), 'Guard agar checkout_transaction tidak dipanggil tanpa branch_id/idempotency_key.');
       assert('Entity CRUD checkout tidak mengirim total client ke RPC', !/subtotal\s*:|total\s*:|tax\s*:|price\s*:/.test(cloudCheckoutSource), 'Harga, diskon, PPN, dan HPP harus dihitung server.');
+      const receiveSource = String(window.ApotekKilatReceivePO && window.ApotekKilatReceivePO.openReceivePOForm || '');
+      assert('PO receive RPC menangani selector tombol nyata', document.documentElement.innerHTML.includes('data-po-receive') && document.documentElement.innerHTML.includes('data-detail-receive') && /receive_purchase_order/.test(receiveSource), 'List PO dan detail PO harus diarahkan ke RPC receive_purchase_order di cloud.');
+      assert('PO receive RPC memakai branch_id dan idempotency_key', /branch_id/.test(receiveSource) && /idempotency_key/.test(receiveSource), 'Penerimaan stok cloud wajib lewat payload atomic RPC.');
 
       const product = DB.products[0];
       product.units = [{code:'TAB',label:'Tablet',factorToBase:1,price:2000,cost:1200},{code:'BOX',label:'Box',factorToBase:10,price:18000,cost:12000}];
