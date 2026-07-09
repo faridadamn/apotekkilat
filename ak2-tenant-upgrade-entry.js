@@ -20,6 +20,13 @@
       : 'Halo, saya ingin aktivasi Cloud ApotekKilat. Mohon info langkah pembayaran dan verifikasi membership cloud.';
     window.open('https://wa.me/628159776654?text='+encodeURIComponent(text), '_blank', 'noopener');
   }
+  function exportBackup(){
+    if(window.ApotekKilatTenantOnboarding && window.ApotekKilatTenantOnboarding.exportLocalBackup){
+      window.ApotekKilatTenantOnboarding.exportLocalBackup();
+      return;
+    }
+    toast('Fitur backup belum siap.', 'err');
+  }
   function openUpgrade(){
     if(isLocalFreeSession()){
       openWhatsApp('cloud');
@@ -81,7 +88,7 @@
     if(!document.querySelector('#ak2SupportCard')){
       const supportHtml = `<div id="ak2SupportCard" class="card" style="margin-bottom:16px;border-color:#d8e3e5;background:#fbfefd">
         <div class="title"><span>Bantuan dan Saran Improvement</span></div>
-        <p class="muted">Butuh bantuan, aktivasi manual, atau ingin kasih masukan fitur? Hubungi admin via WhatsApp.</p>
+        <p class="muted">Butuh bantuan, aktivasi manual, migrasi data, atau ingin kasih masukan fitur? Hubungi admin via WhatsApp.</p>
         <button class="outline" data-action="contact-improvement-wa">Bantuan dan Saran Improvement</button>
       </div>`;
       if(firstCard) firstCard.insertAdjacentHTML('beforebegin', supportHtml);
@@ -95,14 +102,16 @@
       html = `<div id="ak2TenantActivationCard" class="card" style="margin-bottom:16px;border-color:#b8ebcf;background:#f6fffa">
         <div class="title"><span>Aktivasi Cloud Tenant</span>${status('Verifikasi Manual','warn')}</div>
         <p><b>Akun ini sudah login, tetapi belum punya tenant apotek.</b></p>
-        <p class="muted">Aktivasi cloud tidak self-service. Hubungi WhatsApp admin untuk pembayaran/verifikasi membership, lalu tenant cloud akan diaktifkan manual.</p>
-        <button class="primary" data-action="activate-cloud">Hubungi WhatsApp untuk Aktivasi Cloud</button>
+        <p class="muted">Aktivasi cloud tidak self-service. Data lokal tidak otomatis hilang. Hubungi WhatsApp admin untuk pembayaran/verifikasi membership dan migrasi data lokal.</p>
+        <button class="primary" data-action="activate-cloud">Hubungi WhatsApp untuk Aktivasi + Migrasi</button>
+        <button class="outline" data-action="export-local-backup" style="margin-left:8px">Download Backup Data Lokal</button>
       </div>`;
     }else if(local){
       html = `<div id="ak2TenantActivationCard" class="card" style="margin-bottom:16px">
         <div class="title"><span>Cloud Tenant</span>${status('Verifikasi Manual','warn')}</div>
-        <p class="muted">Mode lokal tetap gratis. Untuk aktivasi cloud, hubungi admin via WhatsApp agar pembayaran dan membership diverifikasi manual.</p>
-        <button class="primary" data-action="activate-cloud">Hubungi WhatsApp untuk Aktivasi Cloud</button>
+        <p class="muted">Mode lokal tetap gratis. Untuk aktivasi cloud, hubungi admin via WhatsApp agar pembayaran, membership, dan migrasi data diverifikasi manual.</p>
+        <button class="primary" data-action="activate-cloud">Hubungi WhatsApp untuk Aktivasi + Migrasi</button>
+        <button class="outline" data-action="export-local-backup" style="margin-left:8px">Download Backup Data Lokal</button>
         <button class="outline" data-action="cloud-login" style="margin-left:8px">Masuk Cloud</button>
       </div>`;
     }else if(hasTenant){
@@ -142,6 +151,12 @@
       openUpgrade();
       return;
     }
+    const backup = e.target.closest('[data-action="export-local-backup"]');
+    if(backup){
+      e.preventDefault();
+      exportBackup();
+      return;
+    }
     const login = e.target.closest('[data-action="cloud-login"]');
     if(login){
       e.preventDefault();
@@ -154,7 +169,7 @@
       openWhatsApp('improvement');
     }
   }, true);
-  window.ApotekKilatTenantUpgradeEntry = {isLocalFreeSession, canUpgrade, openUpgrade, openWhatsApp, injectSettingsEntry, updateVisibility};
+  window.ApotekKilatTenantUpgradeEntry = {isLocalFreeSession, canUpgrade, openUpgrade, openWhatsApp, exportBackup, injectSettingsEntry, updateVisibility};
   window.addEventListener('apotekkilat:tenant-updated', updateVisibility);
   setInterval(updateVisibility, 1500);
   setTimeout(updateVisibility, 0);
