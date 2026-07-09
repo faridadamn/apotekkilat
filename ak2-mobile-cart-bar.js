@@ -1,13 +1,10 @@
 /* ak2-mobile-cart-bar.js
    Iterasi 3 — Sticky checkout bar khusus mobile untuk halaman Kasir.
-   Kenapa: di layar HP, kasir harus scroll melewati seluruh grid produk
-   untuk sampai ke keranjang + tombol bayar. Ini kerap dipakai puluhan
-   kali sehari — bar ini membuat total & tombol bayar selalu terlihat,
-   tanpa mengubah logic checkout yang sudah ada (dia cuma memicu tombol
-   checkout asli, bukan reimplementasi baru). */
+   Bar ini hanya memicu tombol checkout asli, bukan membuat logic checkout baru. */
 (function(){
   function isMobile(){ return window.innerWidth <= 720; }
   function isKasirPage(){ return typeof S !== 'undefined' && S.page === 'kasir'; }
+  function setVisibleState(visible){ document.body.classList.toggle('ak2-cartbar-visible', !!visible); }
 
   function ensureBar(){
     let bar = document.querySelector('.ak2-cartbar');
@@ -23,8 +20,6 @@
       `;
       document.body.appendChild(bar);
       bar.querySelector('#ak2CartBarBtn').addEventListener('click', function(){
-        // Panggil tombol checkout ASLI di halaman (bukan logic baru), supaya
-        // semua validasi/RPC yang sudah benar tetap satu-satunya jalur.
         const realBtn = document.querySelector('[data-uom-checkout],[data-action="checkout"]');
         if(realBtn){ realBtn.click(); return; }
         if(typeof checkout === 'function') checkout();
@@ -59,6 +54,7 @@
     if(!isMobile() || !isKasirPage()){
       const bar = document.querySelector('.ak2-cartbar');
       if(bar) bar.classList.remove('show');
+      setVisibleState(false);
       return;
     }
     const {count, total} = cartTotals();
@@ -67,8 +63,10 @@
       document.querySelector('#ak2CartCount').textContent = count;
       document.querySelector('#ak2CartTotal').textContent = fmtIDR(total);
       bar.classList.add('show');
+      setVisibleState(true);
     }else{
       bar.classList.remove('show');
+      setVisibleState(false);
     }
   }
 
@@ -81,5 +79,6 @@
     };
   }
   window.addEventListener('resize', update);
+  window.addEventListener('orientationchange', update);
   setTimeout(update, 0);
 })();
