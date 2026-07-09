@@ -1,4 +1,4 @@
-/* Iterasi 2 Phase B — settings-only login, support, and tenant onboarding entry points. */
+/* Iterasi 2 Phase B — settings-only support and tenant onboarding entry points. */
 (function(){
   function isLocalFreeSession(){
     return !!(authSession && authSession.user && authSession.user.id === 'local-owner');
@@ -15,9 +15,7 @@
       window.ApotekKilatTenantOnboarding.openWhatsApp(kind || 'cloud');
       return;
     }
-    const text = kind === 'improvement'
-      ? 'Halo, saya ingin memberi bantuan/saran improvement untuk ApotekKilat.'
-      : 'Halo, saya ingin aktivasi Cloud ApotekKilat. Mohon info langkah pembayaran dan verifikasi membership cloud.';
+    const text = 'Halo, saya ingin menghubungi support ApotekKilat untuk aktivasi, bantuan, atau saran improvement.';
     window.open('https://wa.me/628159776654?text='+encodeURIComponent(text), '_blank', 'noopener');
   }
   function exportBackup(){
@@ -65,15 +63,13 @@
     const pages = document.querySelector('#pages');
     if(!pages) return;
     const firstCard = pages.querySelector('.card');
-    const can = canUpgrade();
-    const local = isLocalFreeSession();
     const hasTenant = cloudHasTenant();
 
     if(!document.querySelector('#ak2SupportCard')){
-      const supportHtml = `<div id="ak2SupportCard" class="card" style="margin-bottom:16px;border-color:#d8e3e5;background:#fbfefd">
-        <div class="title"><span>Bantuan dan Saran Improvement</span></div>
-        <p class="muted">Butuh bantuan, aktivasi manual, migrasi data, atau ingin kasih masukan fitur? Hubungi admin via WhatsApp.</p>
-        <button class="outline" data-action="contact-improvement-wa">Bantuan dan Saran Improvement</button>
+      const supportHtml = `<div id="ak2SupportCard" class="card" style="margin-bottom:16px;border-color:#b8ebcf;background:#f6fffa">
+        <div class="title"><span>Support ApotekKilat</span>${status('WhatsApp','ok')}</div>
+        <p class="muted">Untuk aktivasi, bantuan, dan saran improvement, silakan menghubungi WhatsApp support representatif.</p>
+        <button class="primary" data-action="contact-support-wa">💬 Hubungi</button>
       </div>`;
       if(firstCard) firstCard.insertAdjacentHTML('beforebegin', supportHtml);
       else pages.insertAdjacentHTML('afterbegin', supportHtml);
@@ -82,25 +78,17 @@
     if(document.querySelector('#ak2TenantActivationCard')) return;
 
     let html = '';
-    if(can){
-      html = `<div id="ak2TenantActivationCard" class="card" style="margin-bottom:16px;border-color:#b8ebcf;background:#f6fffa">
-        <div class="title"><span>Aktivasi Cloud Tenant</span>${status('Verifikasi Manual','warn')}</div>
-        <p><b>Akun ini sudah login, tetapi belum punya tenant apotek.</b></p>
-        <p class="muted">Aktivasi cloud tidak self-service. Data lokal tidak otomatis hilang. Hubungi WhatsApp admin untuk pembayaran/verifikasi membership dan migrasi data lokal.</p>
-        <button class="primary" data-action="activate-cloud">💬 Aktivasi</button>
-        ${backupImportButtons()}
-      </div>`;
-    }else if(local){
-      html = `<div id="ak2TenantActivationCard" class="card" style="margin-bottom:16px">
-        <div class="title"><span>Cloud Tenant</span>${status('Verifikasi Manual','warn')}</div>
-        <p class="muted">Mode lokal tetap gratis. Untuk aktivasi cloud, hubungi admin via WhatsApp agar pembayaran, membership, dan migrasi data diverifikasi manual.</p>
-        <button class="primary" data-action="activate-cloud">💬 Aktivasi</button>
-        ${backupImportButtons()}
-      </div>`;
-    }else if(hasTenant){
+    if(hasTenant){
       html = `<div id="ak2TenantActivationCard" class="card" style="margin-bottom:16px;border-color:#b8ebcf;background:#f6fffa">
         <div class="title"><span>Cloud Tenant</span>${status('Aktif','ok')}</div>
         <p class="muted">Akun ini sudah terhubung ke tenant apotek cloud.</p>
+        ${backupImportButtons()}
+      </div>`;
+    }else{
+      html = `<div id="ak2TenantActivationCard" class="card" style="margin-bottom:16px">
+        <div class="title"><span>Cloud & Data Lokal</span>${status('Verifikasi Manual','warn')}</div>
+        <p class="muted">Mode lokal tetap gratis. Data lokal tidak otomatis hilang. Gunakan Backup sebelum aktivasi/migrasi, dan Import untuk membaca ulang file backup.</p>
+        ${backupImportButtons()}
       </div>`;
     }
     if(!html) return;
@@ -122,6 +110,12 @@
     };
   }
   document.addEventListener('click', function(e){
+    const contact = e.target.closest('[data-action="contact-support-wa"]');
+    if(contact){
+      e.preventDefault();
+      openWhatsApp('cloud');
+      return;
+    }
     const upgrade = e.target.closest('[data-action="activate-cloud"]');
     if(upgrade){
       e.preventDefault();
