@@ -5,12 +5,21 @@
   const isUuid = id => UUID_RE.test(String(id || ''));
   const n = v => Number(v) || 0;
   const ts = v => v ? new Date(v).toISOString() : new Date().toISOString();
+  const asyncUi = () => window.ApotekKilatAsyncAction;
 
   function cloudReady(){
     return !!(window.ApotekKilatSupabaseData && window.ApotekKilatSupabaseData.getMode && window.ApotekKilatSupabaseData.getMode() === 'cloud' && supabaseClient);
   }
   function pharmacyId(){ return window.ApotekKilatSupabaseData && window.ApotekKilatSupabaseData.getPharmacyId ? window.ApotekKilatSupabaseData.getPharmacyId() : null; }
   function localOnlySave(){ localStorage.setItem(DB_KEY, JSON.stringify(DB)); }
+
+  function friendlySOError(err){
+    const msg = String((err && err.message) || err || 'Gagal posting stock opname via RPC');
+    if(/permission|role|not allowed|denied/i.test(msg)) return 'Role akun cloud tidak diizinkan posting stock opname.';
+    if(/stock_opname|opname/i.test(msg)) return 'Stock opname tidak valid atau sudah pernah diposting.';
+    if(/reason|alasan/i.test(msg)) return 'Semua selisih wajib memiliki alasan.';
+    return msg;
+  }
 
   function syncStockOpnameInputs(so){
     if(!so || so.status !== 'Draft') return;
@@ -57,28 +66,37 @@
     }
   }
 
+  async function postStockOpnameViaRpc(so){
+    if(!so) return toast('Stock opname tidak ditemukan','err');
+    syncStockOpnameInputs(so);
+    const invalid = (so.items||[]).find(x=>Number(x.diff)!==0 && !x.reason);
+    if(invalid) return toast('Semua produk dengan selisih wajib memiliki alasan','err');
+    try{
+      await writeStockOpname(so);
+      const {data, error} = await supabaseClient.rpc('post_stock_opname', {p_stock_opname_id: so.id});
+      if(error) throw error;
+      so.status = data && data.status ? data.status : 'Posted';
+      so.completedAt = Date.now();
+      so.postedAt = Date.now();
+      so.journalEntryId = data && data.journal_entry_id ? data.journal_entry_id : null;
+      localOnlySave();
+      render();
+      toast('Stock opname diposting via RPC. Stok hanya diubah oleh server.');
+    }catch(err){ console.error(err); toast(friendlySOError(err),'err'); }
+  }
+
   document.addEventListener('click', async (e)=>{
     const soBtn = e.target.closest('[data-so-finish]');
     if(soBtn && cloudReady()){
       e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
-      const id = soBtn.dataset.soFinish;
-      const so = (DB.stockOpnames||[]).find(x=>x.id===id);
-      if(!so) return toast('Stock opname tidak ditemukan','err');
-      syncStockOpnameInputs(so);
-      const invalid = (so.items||[]).find(x=>Number(x.diff)!==0 && !x.reason);
-      if(invalid) return toast('Semua produk dengan selisih wajib memiliki alasan','err');
-      try{
-        await writeStockOpname(so);
-        const {data, error} = await supabaseClient.rpc('post_stock_opname', {p_stock_opname_id: so.id});
-        if(error) throw error;
-        so.status = data && data.status ? data.status : 'Posted';
-        so.completedAt = Date.now();
-        so.postedAt = Date.now();
-        so.journalEntryId = data && data.journal_entry_id ? data.journal_entry_id : null;
-        localOnlySave();
-        render();
-        toast('Stock opname diposting via RPC. Stok hanya diubah oleh server.');
-      }catch(err){ console.error(err); toast(err.message || 'Gagal posting stock opname via RPC','err'); }
+      const task = async ()=>{
+        const id = soBtn.dataset.soFinish;
+        const so = (DB.stockOpnames||[]).find(x=>x.id===id);
+        return postStockOpnameViaRpc(so);
+      };
+      return asyncUi() ? asyncUi().run(soBtn, task, {label:'Memproses...'}) : task();
     }
   }, true);
+
+  window.ApotekKilatStockOpnameRpc = {cloudReady, syncStockOpnameInputs, writeStockOpname, postStockOpnameViaRpc};
 })();

@@ -51,30 +51,39 @@
     const btn = document.querySelector('#modalSave');
     if(btn){ btn.disabled = true; btn.textContent = 'Mengaktifkan cloud...'; }
 
-    const {error} = await activeClient().rpc('create_pharmacy_tenant', {
-      p_payload: {
-        pharmacy_name: pharmacyName,
-        owner_name: ownerName,
-        address,
-        whatsapp,
-        branch_name: branchName || `${pharmacyName} Pusat`,
-        seed_chart_of_accounts: seedCoa
+    try{
+      const {error} = await activeClient().rpc('create_pharmacy_tenant', {
+        p_payload: {
+          pharmacy_name: pharmacyName,
+          owner_name: ownerName,
+          address,
+          whatsapp,
+          branch_name: branchName || `${pharmacyName} Pusat`,
+          seed_chart_of_accounts: seedCoa
+        }
+      });
+
+      if(error){
+        console.error(error);
+        toast(error.message || 'Gagal mengaktifkan tenant cloud', 'err');
+        return false;
       }
-    });
 
-    busy = false;
-    if(btn){ btn.disabled = false; btn.textContent = 'Aktifkan Cloud'; }
-
-    if(error){
+      toast('Cloud tenant berhasil diaktifkan');
+      closeModal();
+      if(typeof showApp === 'function') await showApp();
+      if(typeof updateHeader === 'function') updateHeader();
+      if(typeof render === 'function') render();
+      window.dispatchEvent(new CustomEvent('apotekkilat:tenant-updated'));
+      return true;
+    }catch(error){
       console.error(error);
       toast(error.message || 'Gagal mengaktifkan tenant cloud', 'err');
       return false;
+    }finally{
+      busy = false;
+      if(btn){ btn.disabled = false; btn.textContent = 'Aktifkan Cloud'; }
     }
-
-    toast('Cloud tenant berhasil diaktifkan');
-    closeModal();
-    if(typeof showApp === 'function') await showApp();
-    return true;
   }
 
   function openTenantUpgrade(){

@@ -4,6 +4,7 @@
   const LOCAL_USER_ID = 'local-owner';
   const LOCAL_EMAIL = 'owner@local.apotekkilat';
   let cloudLoginRequested = false;
+  let onboardingShown = false;
 
   function isCloudMode(){
     return !!(window.ApotekKilatSupabaseData &&
@@ -11,21 +12,70 @@
       window.ApotekKilatSupabaseData.getMode() === 'cloud');
   }
 
-  function localSession(){
+  function localSession(ownerName){
     return {
       access_token: 'local-free-tier',
       token_type: 'local',
-      user: {id: LOCAL_USER_ID, email: LOCAL_EMAIL, app_metadata:{}, user_metadata:{full_name:'Owner Lokal'}}
+      user: {id: LOCAL_USER_ID, email: LOCAL_EMAIL, app_metadata:{}, user_metadata:{full_name:ownerName || 'Owner Lokal'}}
     };
   }
 
   function looksLikeOriginalSeed(){
     const branchNames = (DB.branches || []).map(b => b.name).join('|');
     const userNames = (DB.users || []).map(u => u.name).join('|');
-    return branchNames.includes('Apotek Sehat Bandung') ||
+    return branchNames.includes('Apotek Sehat Pusat') ||
+      branchNames.includes('Apotek Sehat Bandung') ||
       branchNames.includes('Apotek Sehat Surabaya') ||
+      userNames.includes('Apt. Nadia Putri') ||
       userNames.includes('Apt. Dinda Lestari') ||
       userNames.includes('Budi Santoso');
+  }
+
+  function localOwnerName(){
+    const owner = (DB.users || []).find(u => u.userId === LOCAL_USER_ID || u.role === 'Owner');
+    return owner && owner.name ? owner.name : 'Owner Lokal';
+  }
+
+  function setLocalNavLabels(){
+    try{
+      const cabang = Array.isArray(NAV) ? NAV.find(n => n[0] === 'cabang') : null;
+      if(cabang) cabang[2] = 'Profil Apotek';
+    }catch(e){}
+  }
+
+  function applyLocalProfile(pharmacyName, ownerName, address, whatsapp, onboarded){
+    if(!DB || typeof DB !== 'object') return;
+    DB.settings = DB.settings || {};
+    DB.meta = DB.meta || {};
+
+    const cleanPharmacyName = (pharmacyName || DB.settings.pharmacyName || 'Apotek Saya').trim();
+    const cleanOwnerName = (ownerName || localOwnerName() || 'Owner Lokal').trim();
+    const cleanAddress = (address || DB.settings.address || 'Alamat apotek').trim();
+    const cleanWhatsapp = (whatsapp || DB.settings.whatsapp || '').trim();
+    const branchId = 'b-local-main';
+
+    DB.settings.pharmacyName = cleanPharmacyName === 'Apotek Sehat' ? 'Apotek Saya' : cleanPharmacyName;
+    DB.settings.address = cleanAddress === 'Jakarta Selatan' ? 'Alamat apotek' : cleanAddress;
+    DB.settings.whatsapp = cleanWhatsapp === '0812-3456-7890' ? '' : cleanWhatsapp;
+
+    DB.branches = [{
+      id: branchId,
+      name: DB.settings.pharmacyName,
+      address: DB.settings.address,
+      isMain: true
+    }];
+    DB.activeBranchId = branchId;
+    DB.users = [{
+      id: 'u-local-owner',
+      userId: LOCAL_USER_ID,
+      name: cleanOwnerName,
+      branchId,
+      role: 'Owner',
+      status: 'Aktif'
+    }];
+    DB.meta.freeTierOfflineFirst = true;
+    if(onboarded) DB.meta.freeTierOnboarded = true;
+    localStorage.setItem(DB_KEY, JSON.stringify(DB));
   }
 
   function normalizeFreeTierData(){
@@ -33,31 +83,19 @@
     DB.settings = DB.settings || {};
     DB.meta = DB.meta || {};
 
-    const branchId = DB.activeBranchId || ((DB.branches || [])[0] && DB.branches[0].id) || 'b-local-main';
-    const pharmacyName = DB.settings.pharmacyName || 'Apotek Saya';
-    const address = DB.settings.address || 'Alamat apotek';
-
-    if(!Array.isArray(DB.branches) || !DB.branches.length || looksLikeOriginalSeed()){
-      DB.branches = [{id: branchId, name: pharmacyName, address, isMain: true}];
+    const needsSeedCleanup = !Array.isArray(DB.branches) || DB.branches.length !== 1 || !Array.isArray(DB.users) || DB.users.length !== 1 || looksLikeOriginalSeed();
+    if(needsSeedCleanup){
+      const pharmacyName = (DB.meta.freeTierOnboarded && DB.settings.pharmacyName) ? DB.settings.pharmacyName : 'Apotek Saya';
+      const ownerName = (DB.meta.freeTierOnboarded && localOwnerName()) ? localOwnerName() : 'Owner Lokal';
+      const address = (DB.meta.freeTierOnboarded && DB.settings.address) ? DB.settings.address : 'Alamat apotek';
+      const whatsapp = (DB.meta.freeTierOnboarded && DB.settings.whatsapp) ? DB.settings.whatsapp : '';
+      applyLocalProfile(pharmacyName, ownerName, address, whatsapp, !!DB.meta.freeTierOnboarded);
     }else{
-      DB.branches = [Object.assign({}, DB.branches[0], {id: branchId, isMain: true})];
-      DB.branches[0].name = DB.branches[0].name || pharmacyName;
-      DB.branches[0].address = DB.branches[0].address || address;
+      const branch = DB.branches[0];
+      const owner = DB.users[0];
+      applyLocalProfile(DB.settings.pharmacyName || branch.name, owner.name || 'Owner Lokal', DB.settings.address || branch.address, DB.settings.whatsapp || '', !!DB.meta.freeTierOnboarded);
     }
-
-    DB.activeBranchId = branchId;
-    DB.users = [{
-      id: 'u-local-owner',
-      userId: LOCAL_USER_ID,
-      name: 'Owner Lokal',
-      branchId,
-      role: 'Owner',
-      status: 'Aktif'
-    }];
-    DB.settings.pharmacyName = pharmacyName === 'Apotek Sehat' ? 'Apotek Saya' : pharmacyName;
-    DB.settings.address = address === 'Jakarta Selatan' ? 'Alamat apotek' : address;
-    DB.meta.freeTierOfflineFirst = true;
-    localStorage.setItem(DB_KEY, JSON.stringify(DB));
+    setLocalNavLabels();
   }
 
   function hideAuthForLocal(){
@@ -68,24 +106,57 @@
     const logout = document.querySelector('#logoutBtn');
     if(logout){
       logout.textContent = 'Mode Lokal';
-      logout.title = 'Free tier berjalan tanpa akun. Login dipakai saat upgrade ke Cloud.';
-      logout.onclick = function(){ toast('Mode lokal aktif. Data tersimpan di perangkat ini.'); };
+      logout.title = 'Free tier berjalan tanpa akun. Data hanya tersimpan di browser/perangkat ini.';
+      logout.onclick = function(){ toast('Mode lokal aktif. Data hanya tersimpan di browser/perangkat ini.'); };
     }
+  }
+
+  function renderLocalHeader(){
+    if(typeof updateHeader === 'function') updateHeader();
+    const ownerName = localOwnerName();
+    const profile = document.querySelector('#profileName');
+    if(profile) profile.textContent = ownerName;
+    const branch = document.querySelector('#profileBranch');
+    if(branch) branch.textContent = DB.settings && DB.settings.pharmacyName ? DB.settings.pharmacyName : 'Apotek Saya';
+    const avatar = document.querySelector('#profileAvatar');
+    if(avatar) avatar.textContent = ownerName.split(/\s+/).filter(Boolean).map(x=>x[0]).join('').slice(0,2).toUpperCase() || 'OL';
+  }
+
+  function showLocalOnboarding(){
+    if(onboardingShown || isCloudMode() || !DB || (DB.meta && DB.meta.freeTierOnboarded) || typeof modal !== 'function') return;
+    onboardingShown = true;
+    modal('Setup Apotek Lokal', `<div class="form">
+      <div class="notice" style="border:1px solid #f2d39a;background:#fff8e8;border-radius:12px;padding:12px;margin-bottom:4px">
+        <i>!</i><div><b>Penting: data free tier hanya tersimpan di perangkat ini.</b><small>Jika cache/browser dihapus, ganti device, install ulang browser, atau localStorage terhapus, data transaksi dan master lokal bisa hilang permanen. Tidak ada backup otomatis di tier gratis. Gunakan Cloud untuk sinkronisasi dan backup.</small></div>
+      </div>
+      <p class="muted">Free tier dipakai untuk 1 apotek, 1 cabang, 1 owner di perangkat ini. Isi data awal agar tidak memakai contoh Jakarta/Bandung/Surabaya.</p>
+      <label>Nama apotek kamu<input id="localPharmacyName" value="${esc(DB.settings && DB.settings.pharmacyName && DB.settings.pharmacyName !== 'Apotek Saya' ? DB.settings.pharmacyName : '')}" placeholder="Contoh: Apotek Farid Sehat" /></label>
+      <label>Nama kamu<input id="localOwnerName" value="${esc(localOwnerName() === 'Owner Lokal' ? '' : localOwnerName())}" placeholder="Contoh: Farid Adam" /></label>
+      <label>Alamat apotek<input id="localPharmacyAddress" value="${esc(DB.settings && DB.settings.address && DB.settings.address !== 'Alamat apotek' ? DB.settings.address : '')}" placeholder="Contoh: Bekasi" /></label>
+      <label>Nomor WhatsApp<input id="localPharmacyWhatsapp" value="${esc(DB.settings && DB.settings.whatsapp ? DB.settings.whatsapp : '')}" placeholder="08xxxx" /></label>
+      <p class="muted">Nanti multi-user, multi-cabang, sinkronisasi, dan backup otomatis dipakai saat masuk Cloud.</p>
+    </div>`, ()=>{
+      const pharmacyName = document.querySelector('#localPharmacyName').value.trim() || 'Apotek Saya';
+      const ownerName = document.querySelector('#localOwnerName').value.trim() || 'Owner Lokal';
+      const address = document.querySelector('#localPharmacyAddress').value.trim() || 'Alamat apotek';
+      const whatsapp = document.querySelector('#localPharmacyWhatsapp').value.trim() || '';
+      applyLocalProfile(pharmacyName, ownerName, address, whatsapp, true);
+      authSession = localSession(ownerName);
+      setLocalNavLabels();
+      if(typeof render === 'function') render();
+      renderLocalHeader();
+      toast('Profil apotek lokal siap. Data tersimpan di perangkat ini.');
+    }, {saveLabel:'Saya Mengerti, Mulai Pakai'});
   }
 
   async function startLocalFreeTier(){
     if(cloudLoginRequested || isCloudMode()) return;
     normalizeFreeTierData();
-    authSession = localSession();
+    authSession = localSession(localOwnerName());
     hideAuthForLocal();
     if(typeof render === 'function') render();
-    if(typeof updateHeader === 'function') updateHeader();
-    const profile = document.querySelector('#profileName');
-    if(profile) profile.textContent = 'Owner Lokal';
-    const branch = document.querySelector('#profileBranch');
-    if(branch) branch.textContent = DB.settings && DB.settings.pharmacyName ? DB.settings.pharmacyName : 'Apotek Saya';
-    const avatar = document.querySelector('#profileAvatar');
-    if(avatar) avatar.textContent = 'OL';
+    renderLocalHeader();
+    setTimeout(showLocalOnboarding, 80);
   }
 
   function openCloudLogin(){
@@ -98,11 +169,12 @@
     if(typeof setAuthMode === 'function') setAuthMode('login');
     const notice = document.querySelector('#authConfigNotice');
     if(notice){
-      notice.textContent = isSupabaseConfigured() ? 'Masuk untuk aktivasi / akses Cloud. Mode lokal tetap tersimpan di perangkat ini.' : 'Isi dulu Supabase URL dan publishable key di supabase-config.js untuk login Cloud.';
+      const configured = typeof isSupabaseConfigured === 'function' && isSupabaseConfigured();
+      notice.textContent = configured ? 'Masuk untuk aktivasi / akses Cloud. Mode lokal tetap tersimpan di perangkat ini sampai sinkronisasi Cloud tersedia.' : 'Isi dulu Supabase URL dan publishable key di supabase-config.js untuk login Cloud.';
       notice.classList.add('show');
     }
     const subtitle = document.querySelector('#authSubtitle');
-    if(subtitle) subtitle.textContent = 'Login hanya diperlukan untuk mode Cloud. Free tier lokal bisa dipakai tanpa akun.';
+    if(subtitle) subtitle.textContent = 'Login hanya diperlukan untuk mode Cloud. Free tier lokal bisa dipakai tanpa akun, tetapi tidak memiliki backup otomatis.';
   }
 
   function cancelCloudLogin(){
@@ -122,7 +194,7 @@
     };
   }
 
-  window.ApotekKilatFreeTier = {startLocalFreeTier, normalizeFreeTierData, openCloudLogin, cancelCloudLogin};
+  window.ApotekKilatFreeTier = {startLocalFreeTier, normalizeFreeTierData, openCloudLogin, cancelCloudLogin, applyLocalProfile};
 
   // Explicit auth fallback: every first-run/local/no-session path ends in productive Owner mode.
   setTimeout(startLocalFreeTier, 0);

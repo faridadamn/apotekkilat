@@ -1,6 +1,6 @@
 (function(){
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  const state = {client:null, session:null, pharmacyId:null, membership:null, mode:'demo', loading:false, saving:false, queued:false, timer:null, syncStatus:'idle'};
+  const state = {client:null, session:null, pharmacyId:null, membership:null, mode:'demo', loading:false, saving:false, queued:false, timer:null, syncStatus:'idle', legacyFlushDisabled:true};
 
   const arr = v => Array.isArray(v) ? v : [];
   const n = v => Number(v) || 0;
@@ -184,33 +184,32 @@
   }
 
   async function saveRemote(db){
-    if(state.mode !== 'cloud' || state.loading) return;
-    setSyncStatus('saving');
-    emit('Cloud save memakai RPC/CRUD incremental. Snapshot penuh dinonaktifkan.');
+    // Legacy full snapshot sync is intentionally disabled.
+    // Cloud writes must go through explicit RPC/CRUD handlers with RLS, role checks, idempotency, and/or version checks.
+    // This prevents noisy RLS failures and prevents broad full-tenant upserts from overwriting concurrent changes.
+    if(state.mode !== 'cloud' || state.loading) return {skipped:true, reason:'not-cloud-or-loading'};
     setSyncStatus('synced');
+    return {skipped:true, reason:'legacy-full-flush-disabled'};
   }
 
   function scheduleSave(db){
+    // saveDB() is still used for local cache and UI responsiveness.
+    // In cloud mode, do not queue full-dataset upsert. Every cloud mutation must call its own RPC/CRUD writer.
     if(state.mode !== 'cloud' || state.loading) return;
     clearTimeout(state.timer);
-    setSyncStatus('queued');
-    state.timer = setTimeout(()=>flush(db), 1200);
+    state.queued = false;
+    setSyncStatus('synced');
   }
 
   async function flush(db){
-    if(state.saving){ state.queued = true; setSyncStatus('queued'); return; }
-    state.saving = true;
-    try{
-      await saveRemote(db);
-      state.saving = false;
-      if(state.queued){ state.queued = false; scheduleSave(db); }
-    }catch(err){
-      state.saving = false;
-      setSyncStatus('error');
-      console.error('Gagal sync Supabase:', err);
-      emit('Data tersimpan lokal, tapi sync Supabase gagal.', 'err');
-    }
+    // Kept for backward compatibility with callers/tests. It no longer writes the full tenant snapshot.
+    if(state.mode !== 'cloud' || state.loading) return {skipped:true, reason:'not-cloud-or-loading'};
+    state.saving = false;
+    state.queued = false;
+    clearTimeout(state.timer);
+    setSyncStatus('synced');
+    return {skipped:true, reason:'legacy-full-flush-disabled'};
   }
 
-  window.ApotekKilatSupabaseData = {init, scheduleSave, flush, getMode:()=>state.mode, getPharmacyId:()=>state.pharmacyId, getMembership:()=>state.membership, getSyncStatus:()=>state.syncStatus};
+  window.ApotekKilatSupabaseData = {init, scheduleSave, flush, saveRemote, getMode:()=>state.mode, getPharmacyId:()=>state.pharmacyId, getMembership:()=>state.membership, getSyncStatus:()=>state.syncStatus, isLegacyFlushDisabled:()=>state.legacyFlushDisabled};
 })();

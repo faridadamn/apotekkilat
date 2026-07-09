@@ -4,6 +4,7 @@
   function dateFmt(v){ return v?new Date(v).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}):'-'; }
   function timeFmt(v){ return v?new Date(v).toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'-'; }
   function supplierInfo(po){ return (DB.suppliers||[]).find(s=>s.id===po.supplierId||s.name===po.supplier); }
+  function cloudMode(){ return !!(window.ApotekKilatSupabaseData && window.ApotekKilatSupabaseData.getMode && window.ApotekKilatSupabaseData.getMode()==='cloud'); }
   function detailPage(){
     const po=DB.purchaseOrders.find(x=>x.id===S.selectedPOId);
     if(!po){S.selectedPOId=null;return null;}
@@ -36,7 +37,7 @@
   function applyStatus(id,next){const po=DB.purchaseOrders.find(x=>x.id===id);if(!po)return;po.status=next;const now=Date.now();if(next==='Menunggu Approval')po.submittedAt=now;if(next==='Disetujui')po.approvedAt=now;if(next==='Dalam Pengiriman')po.shippedAt=now;po.updatedAt=now;saveDB();render();}
   function reject(id){const po=DB.purchaseOrders.find(x=>x.id===id);if(!po)return;modal('Reject Purchase Order',`<div class="form"><p><b>${esc(po.code)}</b> — ${esc(po.supplier||'-')}</p><label>Alasan Penolakan<textarea id="detailRejectReason" placeholder="Masukkan alasan reject"></textarea></label></div>`,()=>{const r=document.querySelector('#detailRejectReason').value.trim();if(!r)return toast('Alasan reject wajib diisi','err'),false;po.status='Ditolak';po.rejectionReason=r;po.rejectedAt=Date.now();saveDB();render();toast('PO ditolak');});}
   function duplicate(id){const po=DB.purchaseOrders.find(x=>x.id===id);if(!po)return;DB.purchaseOrders.push({id:uid('po'),code:'PO-'+String(Date.now()).slice(-8),supplierId:po.supplierId,supplier:po.supplier,note:(po.note?po.note+' | ':'')+'Duplikat dari '+po.code,items:(po.items||[]).map(x=>({...x})),value:po.value||0,status:'Draft',date:Date.now(),sourcePO:po.code});saveDB();S.selectedPOId=null;render();toast('PO baru hasil duplicate berhasil dibuat');}
-  function receive(id){const po=DB.purchaseOrders.find(x=>x.id===id);if(!po)return;(po.items||[]).forEach(it=>{const p=DB.products.find(x=>x.id===it.productId);if(!p)return;const qty=Number(it.qty)||0;p.stock=(Number(p.stock)||0)+qty;p.batches=p.batches||[];p.batches.push({batchNo:'PO-'+po.code,received:new Date().toISOString().slice(0,10),expired:it.expired||p.expired,qty,location:'Gudang Pusat'});});po.status='Selesai';po.receivedAt=Date.now();saveDB();render();toast('Barang diterima dan stok diperbarui');}
+  function receive(id){if(cloudMode())return toast('Mode cloud wajib menerima PO lewat RPC receive_purchase_order.','err');const po=DB.purchaseOrders.find(x=>x.id===id);if(!po)return;(po.items||[]).forEach(it=>{const p=DB.products.find(x=>x.id===it.productId);if(!p)return;const qty=Number(it.qty)||0;p.stock=(Number(p.stock)||0)+qty;p.batches=p.batches||[];p.batches.push({batchNo:'PO-'+po.code,received:new Date().toISOString().slice(0,10),expired:it.expired||p.expired,qty,location:'Gudang Pusat'});});po.status='Selesai';po.receivedAt=Date.now();saveDB();render();toast('Barang diterima dan stok diperbarui');}
   function print(id){const source=document.querySelector(`[data-po-print="${id}"]`);if(source){source.click();return;}toast('Cetak dari daftar PO bila pop-up diblokir','err');}
 
   const basePurchase=purchase;

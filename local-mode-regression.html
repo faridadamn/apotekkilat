@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>ApotekKilat — Local Mode Regression Test</title>
+<link rel="stylesheet" href="style.css"/>
+<link rel="stylesheet" href="ak2-mobile.css"/>
+<style>
+  body{padding:24px;background:#f6faf8}.test-shell{max-width:980px;margin:0 auto 22px;background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:var(--shadow)}
+  .test-row{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line);padding:10px 0;align-items:flex-start}.test-row:last-child{border-bottom:0}
+  .test-pass{color:#078651;font-weight:900}.test-fail{color:#dc414a;font-weight:900}.app{position:absolute;left:-99999px;top:0;width:1200px;height:900px;overflow:hidden;opacity:.01;pointer-events:none}.auth-screen{position:absolute;left:-99999px;top:0;width:1px;height:1px;overflow:hidden;opacity:.01}
+</style>
+<script>window.APOTEKKILAT_SUPABASE_CONFIG={url:'',publishableKey:''};window.__APOTEKKILAT_LOCAL_REGRESSION__=true;</script>
+</head>
+<body>
+<section class="test-shell"><h1>Local Mode Regression Test</h1><p class="muted">Memaksa Supabase config kosong untuk menguji mode lokal murni.</p><div class="actions"><button class="primary" id="runTests">Jalankan Test</button><button class="outline" id="resetTests">Reset Local Test DB</button></div><div id="summary" style="margin-top:14px" class="status warn">Belum dijalankan</div><div id="results" style="margin-top:16px"></div></section>
+<div class="auth-screen hidden" id="authScreen"><div class="auth-card"><div class="auth-brand"><div class="logo">✚</div><div><h1>ApotekKilat</h1><p>Login staf apotek</p></div></div><form id="authForm" class="auth-form"><h2 id="authTitle">Masuk</h2><p id="authSubtitle">Gunakan akun yang sudah dibuat di Supabase Auth.</p><div class="auth-alert" id="authConfigNotice"></div><label>Email<input id="authEmail" type="email" autocomplete="email" placeholder="nama@apotek.com" required/></label><label>Password<input id="authPassword" type="password" autocomplete="current-password" placeholder="Minimal 6 karakter" required/></label><button class="primary" id="authSubmit" type="submit">Masuk</button><button class="link-btn" id="authModeToggle" type="button">Buat akun baru</button></form></div></div>
+<div class="app"><aside class="sidebar"><div class="brand"><div class="logo">✚</div><div><h1>ApotekKilat</h1><p id="pharmacyLabel">Sistem Manajemen Apotek</p></div></div><nav class="nav" id="nav"></nav><div class="tip"><div style="font-size:34px">💊</div><b>Apotek lebih cepat dan terkontrol.</b><p>Data tersimpan otomatis di perangkat ini.</p></div></aside><main><header class="top"><button class="square" id="sidebarToggle">☰</button><input class="search" id="globalSearch" placeholder="Cari obat, transaksi, pelanggan..."/><div class="spacer"></div><div class="date" id="todayDate"></div><div class="bell">♧</div><div class="profile"><div class="avatar" id="profileAvatar">AK</div><div><b id="profileName">Local Test</b><small id="profileBranch">Apotek Test</small></div></div><button class="outline small-btn" id="logoutBtn">Keluar</button></header><div id="pages"></div></main></div>
+<div class="modal-wrap" id="modalWrap"><div class="modal"><h3 id="modalTitle">Form</h3><div id="modalContent"></div><div class="actions"><button class="outline" data-action="close-modal">Batal</button><button class="primary" id="modalSave">Simpan</button></div></div></div><div class="toast" id="toast"></div>
+<script src="supabase-data.js"></script><script src="app.js"></script><script src="tenant-onboarding.js"></script><script src="p2-checkout-rpc.js"></script><script src="p2-receive-po-rpc.js"></script><script src="p2-return-rpc.js"></script><script src="vendor.js"></script><script src="vendor-po.js"></script><script src="vendor-products.js"></script><script src="purchase-workflow.js"></script><script src="purchase-detail.js"></script><script src="purchase-detail-print.js"></script><script src="customer-detail.js"></script><script src="medicine-ledger.js"></script><script src="sales-transactions.js"></script><script src="multi-uom.js"></script><script src="p6-b1-uom-cloud-bridge.js"></script><script src="uom-ledger-view.js"></script><script src="multi-uom-ui.js"></script><script src="stock-opname.js"></script><script src="returns-v2.js"></script><script src="drug-classification.js"></script><script src="price-lists.js"></script><script src="general-ledger.js"></script><script src="general-ledger-cost-snapshot.js"></script><script src="accounts-payable.js"></script><script src="accounts-payable-autosync.js"></script><script src="accounts-receivable.js"></script><script src="vendor-init.js"></script><script src="membership-admin.js"></script><script src="auth-security.js"></script><script src="entity-crud.js"></script><script src="ak2-async-actions.js"></script><script src="workflow-rpc-hooks.js"></script><script src="optimistic-concurrency.js"></script><script src="sync-state.js"></script><script src="p6-b1-cloud-sync-fix.js"></script><script src="p6-b2-incremental-sync-fallback.js"></script><script src="p6-b3-checkout-compliance-fix.js"></script><script src="p6-n1-soft-delete-sync.js"></script><script src="p6-po-status-sync.js"></script><script src="ak2-free-tier-start.js"></script><script src="ak2-local-profile-page.js"></script><script src="ak2-followup-notes.js"></script><script src="ak2-local-data-warning.js"></script><script src="ak2-critical-rpc-wiring.js"></script><script src="ak2-tenant-upgrade-entry.js"></script><script src="ak2-mobile.js"></script>
+<script>
+(function(){
+  const DB_KEY_TEST='apotekkilat_db_v1',resultsEl=document.querySelector('#results'),summaryEl=document.querySelector('#summary');
+  const wait=ms=>new Promise(r=>setTimeout(r,ms)),clone=v=>JSON.parse(JSON.stringify(v));
+  const isLocal=()=>!isSupabaseConfigured()&&(!window.ApotekKilatSupabaseData||window.ApotekKilatSupabaseData.getMode()!=='cloud');
+  function row(name,ok,detail){const el=document.createElement('div');el.className='test-row';el.innerHTML=`<div><b>${esc(name)}</b>${detail?`<br><small class="muted">${esc(detail)}</small>`:''}</div><span class="${ok?'test-pass':'test-fail'}">${ok?'PASS':'FAIL'}</span>`;resultsEl.appendChild(el)}
+  function assert(name,condition,detail){row(name,!!condition,detail||'');if(!condition)throw new Error(name)}
+  function reset(){localStorage.removeItem(DB_KEY_TEST);DB=seedData();saveDB();if(window.ApotekKilatFreeTier)window.ApotekKilatFreeTier.applyLocalProfile('Apotek Regression Test','Owner Regression','Local Test','',true)}
+  async function run(){resultsEl.innerHTML='';summaryEl.className='status warn';summaryEl.textContent='Running...';const originalDb=clone(DB);try{
+    reset();await wait(120);if(window.ApotekKilatFreeTier)window.ApotekKilatFreeTier.startLocalFreeTier();await wait(220);
+    assert('Supabase config kosong dianggap local mode',isLocal(),'isSupabaseConfigured() harus false dan mode tidak boleh cloud.');
+    assert('Local free tier hanya 1 cabang',Array.isArray(DB.branches)&&DB.branches.length===1,'Tidak boleh ada dummy Jakarta/Bandung/Surabaya.');
+    assert('Local free tier hanya 1 owner',Array.isArray(DB.users)&&DB.users.length===1&&DB.users[0].role==='Owner','Tidak boleh ada user dummy multi-role.');
+    render();assert('Disclaimer data lokal tidak muncul sebagai banner global',!document.querySelector('.ak2-local-data-warning'),'Disclaimer cukup di Pengaturan/Profil Apotek.');
+    S.page='pengaturan';render();assert('Disclaimer data lokal tampil di Pengaturan',!!document.querySelector('#ak2LocalDataSettingsWarning')&&/backup otomatis|localStorage|menghapus data permanen/i.test(document.querySelector('#ak2LocalDataSettingsWarning').textContent),'Risiko localStorage harus terlihat di Pengaturan.');
+    assert('Entry aktivasi tenant tersedia di Pengaturan',!!document.querySelector('#ak2TenantActivationCard')&&/Cloud Tenant|Masuk Cloud|Aktifkan Cloud|Daftarkan Apotek/i.test(document.querySelector('#ak2TenantActivationCard').textContent),'Pengaturan harus punya jalur cloud onboarding.');
+    const tenantSource=String(window.ApotekKilatTenantUpgradeEntry&&window.ApotekKilatTenantUpgradeEntry.injectSettingsEntry||'');
+    assert('Entry tenant upgrade memanggil onboarding RPC flow',/data-action=\"activate-cloud\"|openTenantUpgrade|create_pharmacy_tenant/.test(tenantSource+String(window.ApotekKilatTenantOnboarding&&window.ApotekKilatTenantOnboarding.openTenantUpgrade||'')),'Akun login tanpa tenant harus melihat tombol aktivasi.');
+    assert('Global full flush cloud dinonaktifkan',!!(window.ApotekKilatSupabaseData&&window.ApotekKilatSupabaseData.isLegacyFlushDisabled&&window.ApotekKilatSupabaseData.isLegacyFlushDisabled()),'saveDB() tidak boleh full-tenant upsert.');
+    assert('SupabaseData tidak punya upsertOrder full snapshot',!/upsertOrder|saveRemote\(db\)[\s\S]*\.upsert\(/.test(String(window.ApotekKilatSupabaseData&&window.ApotekKilatSupabaseData.saveRemote||'')),'Cloud writes harus lewat RPC/CRUD eksplisit.');
+    assert('Semua halaman inti render tanpa Supabase',['dashboard','inventori','kasir','pembelian','pelanggan','price-list','laporan-golongan','retur','cabang','chat'].every(p=>{S.page=p;try{render();return!!document.querySelector('#pages .page')}catch(e){console.error(p,e);return false}}),'Render smoke test.');
+    const cloudCheckoutSource=String(window.ApotekKilatEntityCrud&&window.ApotekKilatEntityCrud.checkoutTransaction||'');
+    assert('Entity CRUD checkout RPC memakai payload atomic',/idempotency_key/.test(cloudCheckoutSource)&&/branch_id/.test(cloudCheckoutSource),'Guard branch_id/idempotency_key.');
+    assert('Entity CRUD checkout tidak mengirim total client ke RPC',!/subtotal\s*:|total\s*:|tax\s*:|price\s*:/.test(cloudCheckoutSource),'Harga/total dihitung server.');
+    const receiveSource=String(window.ApotekKilatReceivePO&&window.ApotekKilatReceivePO.openReceivePOForm||'');
+    assert('PO receive RPC menangani selector tombol nyata',document.documentElement.innerHTML.includes('data-po-receive')&&document.documentElement.innerHTML.includes('data-detail-receive')&&/receive_purchase_order/.test(receiveSource),'List/detail PO harus RPC di cloud.');
+    assert('PO receive RPC memakai branch_id dan idempotency_key',/branch_id/.test(receiveSource)&&/idempotency_key/.test(receiveSource),'Penerimaan stok cloud wajib payload atomic.');
+    const soRpcSource=String(window.ApotekKilatStockOpnameRpc&&window.ApotekKilatStockOpnameRpc.postStockOpnameViaRpc||'');
+    assert('Stock opname cloud memakai RPC post_stock_opname',/post_stock_opname/.test(soRpcSource),'Cloud harus lewat RPC.');
+    assert('Stock opname local handler menolak cloud mode',/Mode cloud wajib menyelesaikan stock opname lewat RPC post_stock_opname/.test(document.documentElement.innerHTML),'Local finish tidak boleh adjustment cloud.');
+    assert('Stock opname batch reduction memakai FEFO',/batchTime\(a\)-batchTime\(b\)/.test(document.documentElement.innerHTML),'Batch expired terdekat harus dikurangi duluan.');
+    const product=DB.products[0];product.units=[{code:'TAB',label:'Tablet',factorToBase:1,price:2000,cost:1200},{code:'BOX',label:'Box',factorToBase:10,price:18000,cost:12000}];product.baseUnit='TAB';product.saleUnit='BOX';product.purchaseUnit='BOX';product.stock=20;product.golongan='Bebas';saveDB();
+    S.cart=[{id:product.id,q:1,unitCode:'BOX'}];const beforeStock=product.stock,beforeTx=DB.transactions.length;checkout();
+    assert('Checkout lokal multi-UOM memotong stok base unit',product.stock===beforeStock-10,'1 BOX harus memotong 10 Tablet/base unit.');
+    assert('Checkout lokal membuat transaksi localStorage',DB.transactions.length===beforeTx+1,'Tidak perlu RPC/cloud.');
+    const tx=DB.transactions[DB.transactions.length-1];assert('Transaksi lokal menyimpan unitCode/baseQty',tx.items[0].unitCode==='BOX'&&Number(tx.items[0].baseQty)===10,'Audit multi-UOM.');
+    const customer=DB.customers[0];DB.priceLists=[{id:'pl-test',name:'Promo Lokal',type:'Customer Group',customerIds:[customer.id],dateRange:{start:'',end:''},status:'Aktif',rules:[{productId:product.id,discountPercent:10,fixedPrice:null}]}];S.cartCustomerId=customer.id;S.cart=[{id:product.id,q:1,unitCode:'BOX'}];S.page='kasir';render();
+    assert('Price list lokal aktif untuk customer',(DB.priceLists||[]).length===1&&document.querySelector('#pricePromoSummary'),'Promo harus muncul di kasir local mode.');
+    product.golongan='Keras';S.cart=[{id:product.id,q:1,unitCode:'TAB'}];S.cartPrescriptionId=null;const txBeforeRestricted=DB.transactions.length;checkout();
+    assert('Golongan obat lokal menahan checkout tanpa resep',DB.transactions.length===txBeforeRestricted,'Obat terbatas harus butuh resep.');
+    const rx={id:'rx-local-test',patient:'Pasien Test',doctor:'dr. Test',status:'Diproses',items:[{name:product.name,productId:product.id,qty:1,sig:'Sesuai aturan'}],time:Date.now()};DB.prescriptions.push(rx);S.cartPrescriptionId=rx.id;checkout();
+    assert('Golongan obat lokal bisa checkout dengan resep terverifikasi',DB.transactions.length===txBeforeRestricted+1,'Validasi resep tetap lokal.');
+    S.page='cabang';render();assert('Menu multi-cabang lokal diframe sebagai Profil Apotek',/Profil Apotek/.test(document.querySelector('#pages').textContent),'Free tier tidak expose multi-cabang.');
+    assert('Profil Apotek menjelaskan risiko kehilangan data',/hilang permanen|Tidak Ada Backup Otomatis|localStorage/i.test(document.querySelector('#pages').textContent),'Risiko localStorage harus jelas.');
+    summaryEl.className='status ok';summaryEl.textContent='PASS — semua regression local mode lolos.';
+  }catch(err){console.error(err);summaryEl.className='status expired';summaryEl.textContent='FAIL — '+err.message}finally{DB=originalDb;localStorage.setItem(DB_KEY_TEST,JSON.stringify(DB));render()}}
+  document.querySelector('#runTests').onclick=run;document.querySelector('#resetTests').onclick=()=>{reset();resultsEl.innerHTML='';summaryEl.className='status warn';summaryEl.textContent='Local test DB reset.'};setTimeout(()=>{document.querySelector('#todayDate').textContent=new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'})},0);
+})();
+</script>
+</body>
+</html>
