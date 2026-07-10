@@ -18,9 +18,7 @@
   function isMobile(){ return window.matchMedia('(max-width:720px)').matches; }
 
   function isOpen(){
-    const a = app();
-    if(isMobile()) return document.body.classList.contains('ak2-drawer-open');
-    return !!(a && !a.classList.contains('sidebar-collapsed'));
+    return document.body.classList.contains('ak2-drawer-open');
   }
 
   function syncToggle(){
@@ -36,24 +34,16 @@
   function openDrawer(){
     const a = app();
     if(!a) return;
-    if(isMobile()){
-      document.body.classList.add('ak2-drawer-open');
-    }else{
-      a.classList.remove('sidebar-collapsed');
-      document.body.classList.add('ak2-drawer-open');
-    }
+    a.classList.remove('sidebar-collapsed');
+    document.body.classList.add('ak2-drawer-open');
     syncToggle();
   }
 
   function closeDrawer(){
     const a = app();
     if(!a) return;
-    if(isMobile()){
-      document.body.classList.remove('ak2-drawer-open');
-    }else{
-      a.classList.add('sidebar-collapsed');
-      document.body.classList.remove('ak2-drawer-open');
-    }
+    document.body.classList.remove('ak2-drawer-open');
+    if(!isMobile()) a.classList.add('sidebar-collapsed');
     syncToggle();
   }
 
@@ -69,20 +59,19 @@
     if(!btn || !a) return;
     document.body.classList.add('ak2-floating-sidebar');
     ensureBackdrop();
+    btn.classList.add('ak2-floating-toggle');
     btn.onclick = toggleDrawer;
 
-    if(isMobile()){
-      a.classList.remove('sidebar-collapsed');
+    if(!document.body.classList.contains('ak2-floating-ready')){
+      document.body.classList.add('ak2-floating-ready');
       document.body.classList.remove('ak2-drawer-open');
-    }else if(!document.body.classList.contains('ak2-floating-ready')){
-      a.classList.add('sidebar-collapsed');
+      if(!isMobile()) a.classList.add('sidebar-collapsed');
     }
-    document.body.classList.add('ak2-floating-ready');
     syncToggle();
   }
 
   document.addEventListener('click', function(e){
-    if(!document.body.classList.contains('ak2-drawer-open')) return;
+    if(!isOpen()) return;
     const btn = toggle();
     const side = sidebar();
     if((btn && btn.contains(e.target)) || (side && side.contains(e.target))) return;
