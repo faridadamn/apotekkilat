@@ -37,36 +37,59 @@
     return empty;
   }
 
-  function clearAllData(){
-    const run = function(){
-      DB = makeEmptyDB();
-      if(typeof saveDB === 'function') saveDB();
-      if(window.localStorage && typeof DB_KEY !== 'undefined') localStorage.setItem(DB_KEY, JSON.stringify(DB));
-      if(window.S){
-        S.cart = [];
-        S.cartCustomerId = null;
-        S.selectedProductId = null;
-        S.selectedCustomerId = null;
-        S.selectedPrescriptionId = null;
-        S.activeConversationId = null;
-        S.page = 'dashboard';
-      }
-      if(typeof render === 'function') render();
-      if(typeof updateHeader === 'function') updateHeader();
-      if(typeof toast === 'function') toast('Semua data sudah dikosongkan');
-    };
-
-    if(typeof confirmAction === 'function'){
-      return confirmAction('Hapus semua data dan mulai dari kosong? Data contoh tidak akan dimuat ulang. Profil apotek tetap disimpan.', run);
+  function doClear(){
+    DB = makeEmptyDB();
+    if(typeof saveDB === 'function') saveDB();
+    if(window.localStorage && typeof DB_KEY !== 'undefined') localStorage.setItem(DB_KEY, JSON.stringify(DB));
+    if(window.S){
+      S.cart = [];
+      S.cartCustomerId = null;
+      S.selectedProductId = null;
+      S.selectedCustomerId = null;
+      S.selectedPrescriptionId = null;
+      S.activeConversationId = null;
+      S.page = 'dashboard';
     }
-    if(window.confirm && window.confirm('Hapus semua data dan mulai dari kosong?')) run();
+    if(typeof render === 'function') render();
+    if(typeof updateHeader === 'function') updateHeader();
+    if(typeof toast === 'function') toast('Semua data sudah dikosongkan');
+  }
+
+  function localCounts(){
+    const d = DB || {};
+    const n = k => Array.isArray(d[k]) ? d[k].length : 0;
+    return {products:n('products'), customers:n('customers'), transactions:n('transactions'), po:n('purchaseOrders')};
+  }
+
+  /* Aksi ini permanen dan tidak bisa dibatalkan — sengaja dibuat lebih
+     sulit diklik tidak sengaja daripada konfirmasi biasa: harus ketik
+     "HAPUS" dulu sebelum tombol aktif, dan backup diarahkan dulu. */
+  function clearAllData(){
+    const c = localCounts();
+    const html = `<div class="form">
+      <p><b style="color:var(--red)">Aksi ini permanen. Tidak bisa dibatalkan.</b></p>
+      <p class="muted">Data yang akan hilang: <b style="color:var(--ink)">${c.products}</b> produk, <b style="color:var(--ink)">${c.customers}</b> pelanggan, <b style="color:var(--ink)">${c.transactions}</b> transaksi, <b style="color:var(--ink)">${c.po}</b> PO.</p>
+      <button type="button" class="outline" style="width:100%" data-action="export-local-backup">📥 Download Backup Dulu (disarankan)</button>
+      <p class="muted" style="margin-top:14px">Kalau yakin, ketik <b style="color:var(--ink)">HAPUS</b> di bawah ini untuk mengaktifkan tombol hapus:</p>
+      <input type="text" id="ak2ClearConfirmInput" placeholder="Ketik HAPUS" autocomplete="off"/>
+    </div>`;
+    modal('Hapus Semua Data', html, function(){
+      const val = (document.querySelector('#ak2ClearConfirmInput')||{}).value || '';
+      if(val.trim().toUpperCase() !== 'HAPUS'){
+        if(typeof toast === 'function') toast('Ketik HAPUS dulu untuk konfirmasi', 'err');
+        return false; // modal tetap terbuka
+      }
+      doClear();
+    }, {saveLabel:'Hapus Permanen'});
   }
 
   function injectDeleteButton(){
     if(!window.S || S.page !== 'pengaturan') return;
     const reset = document.querySelector('[data-action="reset-data"]');
     if(!reset || document.querySelector('[data-action="clear-data"]')) return;
-    reset.insertAdjacentHTML('afterend', ' <button class="danger-btn" data-action="clear-data">Hapus</button>');
+    // Sengaja dijauhkan secara visual dari "Reset ke Data Contoh" (baris baru +
+    // pemisah) supaya tidak mudah salah klik antara dua aksi yang efeknya beda jauh.
+    reset.insertAdjacentHTML('afterend', '<div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--line)"><p class="muted" style="margin-bottom:8px">Zona berbahaya — mengosongkan seluruh data lokal secara permanen:</p><button class="danger-btn" data-action="clear-data">🗑️ Hapus Semua Data</button></div>');
   }
 
   const oldRender = typeof render === 'function' ? render : null;
