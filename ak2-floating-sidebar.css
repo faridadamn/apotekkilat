@@ -1,4 +1,4 @@
-/* Floating sidebar toggle + drawer behavior. */
+/* Floating sidebar toggle + fixed off-canvas drawer. */
 #sidebarToggle.ak2-floating-toggle{
   position:fixed!important;
   top:18px!important;
@@ -20,78 +20,80 @@
 #sidebarToggle.ak2-floating-toggle[aria-expanded="true"]{background:#e5f8ee!important;color:#078651!important}
 
 .ak2-sidebar-backdrop{
-  position:fixed;
-  inset:0;
-  background:rgba(12,31,25,.22);
-  z-index:998;
-  opacity:0;
-  pointer-events:none;
-  transition:opacity .2s ease;
+  position:fixed!important;
+  inset:0!important;
+  background:rgba(12,31,25,.24)!important;
+  z-index:998!important;
+  opacity:0!important;
+  pointer-events:none!important;
+  transition:opacity .2s ease!important;
 }
 body.ak2-drawer-open .ak2-sidebar-backdrop{
-  opacity:1;
-  pointer-events:auto;
+  opacity:1!important;
+  pointer-events:auto!important;
 }
 
 body.ak2-floating-sidebar .top{padding-left:78px!important}
-body.ak2-floating-sidebar .sidebar{
-  transition:transform .22s ease, box-shadow .22s ease, width .22s ease, opacity .22s ease;
+body.ak2-floating-sidebar .app,
+body.ak2-floating-sidebar .app.sidebar-collapsed{
+  grid-template-columns:1fr!important;
+}
+body.ak2-floating-sidebar main{min-width:0!important;width:100%!important}
+
+body.ak2-floating-sidebar .sidebar,
+body.ak2-floating-sidebar .app.sidebar-collapsed .sidebar{
+  display:flex!important;
+  position:fixed!important;
+  left:0!important;
+  top:0!important;
+  bottom:0!important;
+  width:min(84vw,292px)!important;
+  max-width:292px!important;
+  height:100vh!important;
+  background:#fff!important;
+  z-index:1000!important;
+  border-right:1px solid var(--line)!important;
+  box-shadow:0 28px 70px rgba(11,45,34,.24)!important;
+  transform:translateX(-110%)!important;
+  opacity:0!important;
+  pointer-events:none!important;
+  overflow:auto!important;
+  padding:22px 15px!important;
+  transition:transform .22s ease, opacity .22s ease!important;
+}
+body.ak2-floating-sidebar.ak2-drawer-open .sidebar,
+body.ak2-floating-sidebar.ak2-drawer-open .app.sidebar-collapsed .sidebar{
+  transform:translateX(0)!important;
+  opacity:1!important;
+  pointer-events:auto!important;
 }
 
-@media(min-width:721px){
-  body.ak2-floating-sidebar .app{grid-template-columns:238px 1fr}
-  body.ak2-floating-sidebar .app.sidebar-collapsed{grid-template-columns:0 1fr!important}
-  body.ak2-floating-sidebar .app.sidebar-collapsed .sidebar{
-    width:238px!important;
-    padding:22px 15px!important;
-    transform:translateX(-105%);
-    opacity:0;
-    pointer-events:none;
-    border-right:0!important;
-  }
-  body.ak2-floating-sidebar .app:not(.sidebar-collapsed) .sidebar{
-    transform:translateX(0);
-    opacity:1;
-    pointer-events:auto;
-  }
-  body.ak2-floating-sidebar .app.sidebar-collapsed .brand h1,
-  body.ak2-floating-sidebar .app.sidebar-collapsed .brand p,
-  body.ak2-floating-sidebar .app.sidebar-collapsed .nav span:not(.ico):not(.pill),
-  body.ak2-floating-sidebar .app.sidebar-collapsed .tip{display:block!important}
-  body.ak2-floating-sidebar .app.sidebar-collapsed .brand{justify-content:flex-start!important;padding:0 10px 25px!important}
-  body.ak2-floating-sidebar .app.sidebar-collapsed .nav button{justify-content:flex-start!important;padding:11px 12px!important}
-  body.ak2-floating-sidebar .app.sidebar-collapsed .tip{display:block!important}
+body.ak2-floating-sidebar .brand,
+body.ak2-floating-sidebar .app.sidebar-collapsed .brand{
+  justify-content:flex-start!important;
+  padding:0 10px 25px!important;
 }
+body.ak2-floating-sidebar .brand h1,
+body.ak2-floating-sidebar .brand p,
+body.ak2-floating-sidebar .nav span:not(.ico):not(.pill),
+body.ak2-floating-sidebar .tip,
+body.ak2-floating-sidebar .app.sidebar-collapsed .brand h1,
+body.ak2-floating-sidebar .app.sidebar-collapsed .brand p,
+body.ak2-floating-sidebar .app.sidebar-collapsed .nav span:not(.ico):not(.pill),
+body.ak2-floating-sidebar .app.sidebar-collapsed .tip{
+  display:block!important;
+}
+body.ak2-floating-sidebar .nav button,
+body.ak2-floating-sidebar .app.sidebar-collapsed .nav button{
+  justify-content:flex-start!important;
+  padding:11px 12px!important;
+}
+body.ak2-floating-sidebar .nav{gap:5px!important}
 
 @media(max-width:720px){
   body.ak2-floating-sidebar .top{padding-left:74px!important}
-  body.ak2-floating-sidebar .sidebar{
-    display:flex!important;
-    position:fixed!important;
-    left:0!important;
-    top:0!important;
-    bottom:0!important;
-    width:min(82vw,286px)!important;
-    background:#fff!important;
-    z-index:1000!important;
-    border-right:1px solid var(--line)!important;
-    box-shadow:0 28px 70px rgba(11,45,34,.22)!important;
-    transform:translateX(-105%);
-    opacity:0;
-    pointer-events:none;
-    overflow:auto!important;
-    padding:22px 15px!important;
+  body.ak2-floating-sidebar .sidebar,
+  body.ak2-floating-sidebar .app.sidebar-collapsed .sidebar{
+    width:min(86vw,286px)!important;
   }
-  body.ak2-floating-sidebar.ak2-drawer-open .sidebar{
-    transform:translateX(0);
-    opacity:1;
-    pointer-events:auto;
-  }
-  body.ak2-floating-sidebar .brand{justify-content:flex-start!important;padding:0 10px 25px!important}
-  body.ak2-floating-sidebar .brand h1,
-  body.ak2-floating-sidebar .brand p,
-  body.ak2-floating-sidebar .nav span:not(.ico):not(.pill),
-  body.ak2-floating-sidebar .tip{display:block!important}
-  body.ak2-floating-sidebar .nav button{justify-content:flex-start!important;padding:11px 12px!important}
-  body.ak2-floating-sidebar .nav{gap:5px!important}
 }
