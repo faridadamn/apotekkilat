@@ -85,7 +85,7 @@
             </div>
             <p class="muted">Lanjutkan aktivasi via WhatsApp dan lampirkan file backup ini agar admin bisa bantu migrasi.</p>
             <button type="button" class="primary" style="width:100%" data-action="contact-cloud-wa">💬 Aktivasi</button>
-          </div>`, ()=>{ openWhatsApp('cloud'); return false; }, {saveLabel:'💬 Aktivasi'});
+          </div>`, null, {hideSave:true});
         }catch(error){
           console.error(error);
           toast('File backup tidak valid', 'err');
@@ -139,13 +139,15 @@
         <p class="muted">Email akun login: <b style="color:var(--ink)">${esc(email || '-')}</b></p>
         <p class="muted">Data lokal terdeteksi: <b style="color:var(--ink)">${s.products}</b> produk, <b style="color:var(--ink)">${s.customers}</b> pelanggan, <b style="color:var(--ink)">${s.transactions}</b> transaksi.</p>
       </div>
-      <button type="button" class="primary" style="width:100%;margin-top:10px" data-action="contact-cloud-wa">💬 Aktivasi</button>
-      <div style="display:flex;gap:8px;margin-top:8px">
-        <button type="button" class="outline" style="flex:1" data-action="export-local-backup">Backup</button>
-        <button type="button" class="outline" style="flex:1" data-action="import-local-backup">Import</button>
+      <p class="muted" style="margin-top:12px;font-weight:800;color:var(--ink)">Langkah 1 — Siapkan file backup dulu</p>
+      <div style="display:flex;gap:8px">
+        <button type="button" class="outline" style="flex:1" data-action="export-local-backup">📥 Backup</button>
+        <button type="button" class="outline" style="flex:1" data-action="import-local-backup">🔎 Cek File Backup</button>
       </div>
-      <p class="muted">Catatan: tombol ini tidak menjalankan RPC <code>create_pharmacy_tenant</code>. Produk dan pelanggan akan diprioritaskan untuk migrasi manual. Histori transaksi lama bisa tetap dilihat dari mode lokal sampai migrasi historis disiapkan.</p>
-    </div>`, ()=>{ openWhatsApp('cloud'); return false; }, {saveLabel:'💬 Aktivasi'});
+      <p class="muted" style="margin-top:14px;font-weight:800;color:var(--ink)">Langkah 2 — Kirim ke admin untuk verifikasi & migrasi</p>
+      <button type="button" class="primary" style="width:100%" data-action="contact-cloud-wa">💬 Hubungi WhatsApp untuk Aktivasi</button>
+      <p class="muted" style="margin-top:10px">Catatan: tombol ini tidak menjalankan RPC <code>create_pharmacy_tenant</code>. Produk dan pelanggan akan diprioritaskan untuk migrasi manual. Histori transaksi lama bisa tetap dilihat dari mode lokal sampai migrasi historis disiapkan.</p>
+    </div>`, null, {hideSave:true});
   }
 
   document.addEventListener('click', function(e){
