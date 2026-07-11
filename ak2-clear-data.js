@@ -61,9 +61,6 @@
     return {products:n('products'), customers:n('customers'), transactions:n('transactions'), po:n('purchaseOrders')};
   }
 
-  /* Aksi ini permanen dan tidak bisa dibatalkan — sengaja dibuat lebih
-     sulit diklik tidak sengaja daripada konfirmasi biasa: harus ketik
-     "HAPUS" dulu sebelum tombol aktif, dan backup diarahkan dulu. */
   function clearAllData(){
     const c = localCounts();
     const html = `<div class="form">
@@ -77,19 +74,27 @@
       const val = (document.querySelector('#ak2ClearConfirmInput')||{}).value || '';
       if(val.trim().toUpperCase() !== 'HAPUS'){
         if(typeof toast === 'function') toast('Ketik HAPUS dulu untuk konfirmasi', 'err');
-        return false; // modal tetap terbuka
+        return false;
       }
       doClear();
     }, {saveLabel:'Hapus Permanen'});
   }
 
+  function dangerZoneHtml(){
+    return `<div id="ak2DangerZoneCard" class="card" style="margin-top:16px;border-color:#f2b4b8;background:#fffafa">
+      <div class="title"><span>Zona Berbahaya</span>${typeof status === 'function' ? status('Permanen','expired') : ''}</div>
+      <p class="muted">Gunakan ini hanya kalau ingin mengosongkan seluruh data lokal dan mulai dari nol. Berbeda dengan reset, fitur ini tidak memuat ulang data contoh.</p>
+      <button class="danger-btn" data-action="clear-data">🗑️ Hapus Semua Data</button>
+    </div>`;
+  }
+
   function injectDeleteButton(){
     if(!window.S || S.page !== 'pengaturan') return;
-    const reset = document.querySelector('[data-action="reset-data"]');
-    if(!reset || document.querySelector('[data-action="clear-data"]')) return;
-    // Sengaja dijauhkan secara visual dari "Reset ke Data Contoh" (baris baru +
-    // pemisah) supaya tidak mudah salah klik antara dua aksi yang efeknya beda jauh.
-    reset.insertAdjacentHTML('afterend', '<div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--line)"><p class="muted" style="margin-bottom:8px">Zona berbahaya — mengosongkan seluruh data lokal secara permanen:</p><button class="danger-btn" data-action="clear-data">🗑️ Hapus Semua Data</button></div>');
+    if(document.querySelector('#ak2DangerZoneCard')) return;
+    const pages = document.querySelector('#pages');
+    if(!pages) return;
+    const settingsSection = pages.querySelector('section.page.active') || pages;
+    settingsSection.insertAdjacentHTML('beforeend', dangerZoneHtml());
   }
 
   const oldRender = typeof render === 'function' ? render : null;
@@ -97,6 +102,7 @@
     render = function(){
       const out = oldRender.apply(this, arguments);
       setTimeout(injectDeleteButton, 0);
+      setTimeout(injectDeleteButton, 100);
       return out;
     };
   }
