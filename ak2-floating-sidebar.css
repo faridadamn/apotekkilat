@@ -19,6 +19,18 @@
 #sidebarToggle.ak2-floating-toggle:hover{background:#f6fffa!important}
 #sidebarToggle.ak2-floating-toggle[aria-expanded="true"]{background:#e5f8ee!important;color:#078651!important}
 
+/* Saat drawer terbuka, geser tombol ke tepi kanan drawer supaya tidak
+   menimpa brand/logo di pojok kiri atas sidebar. */
+body.ak2-floating-sidebar.ak2-drawer-open #sidebarToggle.ak2-floating-toggle{
+  left:calc(min(84vw,292px) + 10px)!important;
+  transition:left .22s ease!important;
+}
+@media(max-width:720px){
+  body.ak2-floating-sidebar.ak2-drawer-open #sidebarToggle.ak2-floating-toggle{
+    left:calc(min(86vw,286px) + 10px)!important;
+  }
+}
+
 .ak2-sidebar-backdrop{
   position:fixed!important;
   inset:0!important;
