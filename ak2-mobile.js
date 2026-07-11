@@ -1,20 +1,13 @@
-/* Iterasi 2 — Mobile drawer + table-to-card labels. */
+/* Iterasi 2 — Table-to-card labels untuk tabel di layar sempit.
+   Toggle drawer/hamburger dipindah sepenuhnya ke ak2-floating-sidebar.js
+   (drawer off-canvas + tombol bulat terpadu, mobile & desktop) supaya tidak
+   ada 2 sistem drawer yang saling menimpa. Riwayat: sistem lama di sini
+   dulu memasang capturing listener + stopImmediatePropagation() yang
+   memblokir sistem baru sepenuhnya — akibatnya tombol hamburger tidak
+   membuka apa-apa sama sekali di mobile. Jangan tambahkan toggle drawer
+   lagi di file ini; taruh di ak2-floating-sidebar.js supaya tetap satu
+   sumber kebenaran. */
 (function(){
-  function app(){ return document.querySelector('.app'); }
-  function ensureOverlay(){
-    let overlay = document.querySelector('.mobile-drawer-overlay');
-    if(!overlay){
-      overlay = document.createElement('div');
-      overlay.className = 'mobile-drawer-overlay';
-      const root = app();
-      if(root && root.parentNode) root.parentNode.insertBefore(overlay, root.nextSibling);
-      overlay.addEventListener('click', closeDrawer);
-    }
-    return overlay;
-  }
-  function openDrawer(){ const a = app(); if(a){ ensureOverlay(); a.classList.add('mobile-drawer-open'); const b=document.querySelector('#sidebarToggle'); if(b) b.textContent='×'; } }
-  function closeDrawer(){ const a = app(); if(a){ a.classList.remove('mobile-drawer-open'); const b=document.querySelector('#sidebarToggle'); if(b) b.textContent='☰'; } }
-  function toggleDrawer(){ const a=app(); if(!a) return; a.classList.contains('mobile-drawer-open') ? closeDrawer() : openDrawer(); }
   function labelTables(){
     document.querySelectorAll('table').forEach(table=>{
       const headers = Array.from(table.querySelectorAll('thead th')).map(th=>th.textContent.trim());
@@ -33,16 +26,5 @@
       return out;
     };
   }
-  document.addEventListener('click', function(e){
-    if(e.target.closest('#sidebarToggle')){
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-      toggleDrawer();
-      return;
-    }
-    if(e.target.closest('#nav [data-page]')) closeDrawer();
-  }, true);
-  document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeDrawer(); });
-  setTimeout(()=>{ ensureOverlay(); labelTables(); }, 0);
+  setTimeout(labelTables, 0);
 })();
